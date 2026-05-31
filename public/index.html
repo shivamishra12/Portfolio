@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shivam Kumar — AI Developer</title>
+  <link rel="icon" href="profile.jpeg" type="image/jpeg" />
+  <link rel="stylesheet" href="style.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body>
+
+  <div id="cursor-dot"></div>
+  <div id="cursor-ring"></div>
+
+  <nav id="navbar">
+    <div class="nav-brand"><img src="profile.jpeg" alt="Logo"
+        style="height: 50px; border-radius: 50%; object-fit: cover;"></div>
+    <ul class="nav-links">
+      <li><a href="#hero">Home</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#upcoming">Upcoming</a></li>
+      <li><a href="#activities">Activities</a></li>
+      <li><a href="#certificates">Certificates</a></li>
+      <li><a href="#partners">Partners</a></li>
+      <li><a href="#blogs">Blogs</a></li>
+      <li><a href="#contact">Contact</a></li>
+      <li><a href="/admin" class="nav-admin-btn">Admin</a></li>
+    </ul>
+    <div class="nav-accent-line"></div>
+  </nav>
+
+  <!-- ══════ HERO ══════ -->
+  <section id="hero">
+    <div class="hero-bg">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+      <canvas id="particle-canvas"></canvas>
+    </div>
+
+    <div class="hero-left">
+      <div class="groot-wrap" id="grootWrap">
+        <div class="groot-glow-ring r1"></div>
+        <div class="groot-glow-ring r2"></div>
+        <div class="groot-glow-ring r3"></div>
+        <div class="groot-shadow"></div>
+        <img src="profile.jpeg" alt="Shivam Kumar" id="grootImg" draggable="false"
+          style="border-radius: 50%; object-fit: cover; width: 300px; height: 300px; position: relative; z-index: 3; margin: 0 auto; display: block; align-self: center;" />
+        <div id="speechBubble" class="speech-bubble hidden">Hello! 👋</div>
+        <!-- <p class="click-hint">click groot</p> -->
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <span class="hero-pill">✦ Avengers of AI</span>
+      <h1 class="hero-name">Shivam<br /><em>Kumar</em></h1>
+      <p class="hero-role"><span id="typedText"></span><span class="type-cursor">|</span></p>
+      <p class="hero-desc">I build intelligent systems using machine learning, deep learning, and data engineering. I
+        enjoy creating real-world AI solutions and scalable data systems.</p>
+      <div class="hero-cta">
+        <a href="#projects" class="btn btn-primary">View Projects</a>
+        <a id="resumeBtnHero" href="#" download="Shivam_Mishra_Resume.pdf" class="btn btn-ghost"
+          style="display:none;">📄 Download Resume</a>
+        <a href="#contact" class="btn btn-ghost">Contact Me</a>
+      </div>
+      <div class="hero-metrics">
+        <div class="metric"><b id="projectCount">0</b><span>Projects</span></div>
+        <div class="metric"><b>2+</b><span>Yrs Coding</span></div>
+        <div class="metric"><b>∞</b><span>Curiosity</span></div>
+      </div>
+    </div>
+    <div class="scroll-indicator">scroll ↓</div>
+  </section>
+
+  <!-- ══════ ABOUT ══════ -->
+  <section id="about" class="section-pad">
+    <div class="section-header reveal">
+      <!-- <span class="section-tag">// 01 about</span> -->
+      <h2>Education & Background</h2>
+    </div>
+    <div class="about-grid">
+      <div class="edu-col reveal-left">
+        <div id="educationGrid"></div>
+        <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Skills & Technologies</h3>
+        <div id="skillsGrid" class="skill-cloud reveal"></div>
+        <div class="reveal" style="margin-top: 2rem;">
+          <a id="resumeBtnAbout" href="#" download="Shivam_Mishra_Resume.pdf" class="btn btn-primary"
+            style="display:none; padding: 12px 28px; font-size: 0.75rem;">📄 Download Full Resume (PDF)</a>
+        </div>
+      </div>
+      <div class="profile-col reveal-right">
+        <div class="profile-frame">
+          <div class="profile-photo" style="background-color: #111;">
+            <img src="groot_logo.png" alt="Symbol of Growth"
+              style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+          </div>
+          <div class="profile-ring pr1"></div>
+          <div class="profile-ring pr2"></div>
+          <div class="profile-ring pr3"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ PROJECTS ══════ -->
+  <section id="projects" class="section-pad">
+    <div class="section-header reveal">
+      <!-- <span class="section-tag">// 02 projects</span> -->
+      <h2>Project Showcase</h2>
+    </div>
+
+    <!-- Loading state -->
+    <div id="projects-loading"
+      style="text-align:center;padding:60px;font-family:'Space Mono',monospace;color:rgba(240,246,255,0.4);font-size:0.85rem;">
+      Loading projects<span id="loadDots">...</span>
+    </div>
+
+    <!-- Projects grid — populated by JS -->
+    <div class="projects-grid" id="projectsGrid" style="display:none"></div>
+
+    <div class="view-all-wrap reveal" id="viewAllWrap" style="display:none">
+      <button onclick="toggleAllProjects()" class="btn btn-primary">View All Projects</button>
+    </div>
+  </section>
+
+  <!-- ══════ PROJECT DETAIL MODAL ══════ -->
+  <div id="projectModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-box glass-card">
+      <button class="modal-close-btn" onclick="closeModal()">✕</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <!-- ══════ UPCOMING PROJECTS ══════ -->
+  <section id="upcoming" class="section-pad">
+    <div class="section-header reveal">
+      <h2>Upcoming Projects</h2>
+      <p class="section-sub">A sneak peek into future projects in active development, planning, or design phases.</p>
+    </div>
+    <div id="upcoming-loading"
+      style="text-align:center;padding:40px;font-family:'Space Mono',monospace;color:rgba(240,246,255,0.4);font-size:0.85rem;">
+      Loading pipeline...
+    </div>
+    <div class="upcoming-grid" id="upcomingGrid" style="display:none"></div>
+  </section>
+
+  <!-- ══════ ACTIVITIES & COMPETITIONS ══════ -->
+  <section id="activities" class="section-pad">
+    <div class="section-header reveal">
+      <h2>Extracurricular Activities</h2>
+      <p class="section-sub">Hackathons, coding contests, workshops, and extracurricular contributions.</p>
+    </div>
+    <div id="activities-loading"
+      style="text-align:center;padding:40px;font-family:'Space Mono',monospace;color:rgba(240,246,255,0.4);font-size:0.85rem;">
+      Loading activities...
+    </div>
+    <div class="activities-grid" id="activitiesGrid" style="display:none"></div>
+  </section>
+
+  <!-- ══════ CERTIFICATIONS ══════ -->
+  <section id="certificates" class="section-pad">
+    <div class="section-header reveal">
+      <h2>Certifications & Credentials</h2>
+      <p class="section-sub">Technical certifications, course completions, and training credentials.</p>
+    </div>
+    <div id="certificates-loading"
+      style="text-align:center;padding:40px;font-family:'Space Mono',monospace;color:rgba(240,246,255,0.4);font-size:0.85rem;">
+      Loading credentials...
+    </div>
+    <div class="certificates-grid" id="certificatesGrid" style="display:none"></div>
+  </section>
+
+  <!-- ══════ COLLABORATORS ══════ -->
+  <section id="partners" class="section-pad">
+    <div class="section-header reveal">
+      <h2>Project Partners & Collaborators</h2>
+      <p class="section-sub">Talented engineers, researchers, and creators I've teamed up with.</p>
+    </div>
+    <div id="partners-loading"
+      style="text-align:center;padding:40px;font-family:'Space Mono',monospace;color:rgba(240,246,255,0.4);font-size:0.85rem;">
+      Loading collaborators...
+    </div>
+    <div class="partners-grid" id="partnersGrid" style="display:none"></div>
+  </section>
+
+  <!-- ══════ BLOGS ══════ -->
+  <section id="blogs" class="section-pad">
+    <div class="section-header reveal">
+      <h2>Technical Blogs</h2>
+      <p class="section-sub">Articles and tutorials published on platforms like Medium, Dev.to, and others.</p>
+    </div>
+    <div id="blogs-loading"
+      style="text-align:center;padding:40px;font-family:'Space Mono',monospace;color:rgba(240,246,255,0.4);font-size:0.85rem;">
+      Loading articles...
+    </div>
+    <div class="blogs-grid" id="blogsGrid" style="display:none"></div>
+  </section>
+
+  <!-- ══════ CONTACT ══════ -->
+  <section id="contact" class="section-pad">
+    <div class="section-header reveal">
+      <!-- <span class="section-tag">// 03 contact</span> -->
+      <h2>Let's Connect</h2>
+      <p class="section-sub">Open to opportunities, collabs, and interesting conversations.</p>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-left reveal-left">
+        <div class="contact-links" id="socialsContainer">
+          <div
+            style="text-align:center;font-family:'Space Mono',monospace;color:rgba(240,246,255,0.4);font-size:0.8rem;width:100%;">
+            Loading profiles...</div>
+        </div>
+      </div>
+      <div class="contact-right reveal-right">
+        <form id="contactForm" class="glass-card contact-form">
+          <h3
+            style="font-family: var(--ff-head); font-weight: 700; margin-bottom: 1.5rem; font-size: 1.15rem; text-align: left;">
+            Send a Direct Message</h3>
+          <div class="form-input-group">
+            <input type="text" id="c-name" placeholder="Your Name" required />
+          </div>
+          <div class="form-input-group">
+            <input type="email" id="c-email" placeholder="Your Email" required />
+          </div>
+          <div class="form-input-group">
+            <textarea id="c-message" placeholder="Your Message" rows="5" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" id="c-submitBtn"
+            style="padding: 12px 28px; width: 100%; border-radius: 10px;">Send Message →</button>
+          <div id="c-status" class="form-status"
+            style="margin-top: 12px; font-family: var(--ff-mono); font-size: 0.75rem; text-align: left;"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-glow-line"></div>
+    <p>© <span id="fyear"></span> <strong>Shivam Kumar</strong> — AI Developer Portfolio</p>
+    <p class="footer-sub">Built with 💙 Node.js · Express · SQLite · <a href="/admin" class="footer-admin-link">Admin
+        Console</a></p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
