@@ -70,11 +70,6 @@ The SQLite database (`portfolio.db`) uses `better-sqlite3` and defines the follo
 
 ```mermaid
 erDiagram
-    admin {
-        int id PK
-        text username
-        text password
-    }
     projects {
         int id PK
         text title
