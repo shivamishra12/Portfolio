@@ -15,7 +15,8 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 /* ─── DATABASE SETUP ─────────────────────── */
-const db = new Database('./portfolio.db');
+const dbPath = process.env.DATABASE_PATH || './portfolio.db';
+const db = new Database(dbPath);
 
 // Create tables
 db.exec(`
