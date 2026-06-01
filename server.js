@@ -3,15 +3,15 @@
    Express + SQLite + Session Auth
 ══════════════════════════════════════════════ */
 
-const express      = require('express');
-const session      = require('express-session');
-const bcrypt       = require('bcryptjs');
-const multer       = require('multer');
-const path         = require('path');
-const fs           = require('fs');
-const Database     = require('better-sqlite3');
+const express = require('express');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const Database = require('better-sqlite3');
 
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* ─── DATABASE SETUP ─────────────────────── */
@@ -382,7 +382,7 @@ function reorderItems(table, itemId, position, customPos) {
   const targetIndex = items.findIndex(item => item.id === itemId);
   if (targetIndex === -1) return;
   const targetItem = items.splice(targetIndex, 1)[0];
-  
+
   let newIndex;
   const len = items.length;
   if (position === 'top') {
@@ -397,9 +397,9 @@ function reorderItems(table, itemId, position, customPos) {
   } else {
     newIndex = len;
   }
-  
+
   items.splice(newIndex, 0, targetItem);
-  
+
   const updateStmt = db.prepare(`UPDATE ${table} SET sort_order = ? WHERE id = ?`);
   db.transaction((list) => {
     list.forEach((item, idx) => {
@@ -549,10 +549,12 @@ app.post('/api/messages', (req, res) => {
    AUTH ROUTES
 ════════════════════════════════════════════ */
 
-// GET /login
-app.get('/login', (req, res) => {
-  if (req.session.admin) return res.redirect('/admin');
-  res.sendFile(path.join(__dirname, 'views', 'login.html'));
+// GET /api/auth-check
+app.get('/api/auth-check', (req, res) => {
+  if (req.session && req.session.admin) {
+    return res.json({ authenticated: true, username: req.session.admin.username });
+  }
+  res.json({ authenticated: false });
 });
 
 // POST /login
@@ -592,7 +594,7 @@ app.get('/admin/api/projects', requireAuth, (req, res) => {
 });
 
 // POST /admin/api/projects — create
-app.post('/admin/api/projects', requireAuth, upload.fields([{name: 'image', maxCount: 1}, {name: 'gallery', maxCount: 10}]), (req, res) => {
+app.post('/admin/api/projects', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), (req, res) => {
   try {
     const { title, description, full_desc, emoji, tags, github_url, linkedin_url, team, gradient, is_pinned } = req.body;
     if (!title || !description) return res.status(400).json({ error: 'Title and description are required.' });
@@ -612,14 +614,14 @@ app.post('/admin/api/projects', requireAuth, upload.fields([{name: 'image', maxC
 });
 
 // PUT /admin/api/projects/:id — update
-app.put('/admin/api/projects/:id', requireAuth, upload.fields([{name: 'image', maxCount: 1}, {name: 'gallery', maxCount: 10}]), (req, res) => {
+app.put('/admin/api/projects/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), (req, res) => {
   try {
     const { title, description, full_desc, emoji, tags, github_url, linkedin_url, team, gradient, is_pinned } = req.body;
     const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found' });
 
     const image_url = req.files && req.files.image ? `/uploads/${req.files.image[0].filename}` : existing.image_url;
-    
+
     let gallery_urls = existing.gallery_urls || '';
     if (req.files && req.files.gallery) {
       const newUrls = req.files.gallery.map(f => `/uploads/${f.filename}`).join(',');
@@ -633,7 +635,7 @@ app.put('/admin/api/projects/:id', requireAuth, upload.fields([{name: 'image', m
           github_url=?, linkedin_url=?, team=?, gradient=?, is_pinned=?, gallery_urls=?
       WHERE id=?
     `).run(title, description, full_desc || '', emoji || '🚀', image_url, tags || '',
-           github_url || '', linkedin_url || '', team || '', gradient || existing.gradient, pinned, gallery_urls, req.params.id);
+      github_url || '', linkedin_url || '', team || '', gradient || existing.gradient, pinned, gallery_urls, req.params.id);
 
     res.json({ success: true });
   } catch (err) {
@@ -649,8 +651,7 @@ app.delete('/admin/api/projects/:id', requireAuth, (req, res) => {
 
     // Delete uploaded image file if exists
     if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filename = existing.image_url.replace('/uploads/', '');
-      const filePath = path.join(UPLOADS_DIR, filename);
+      const filePath = path.join(__dirname, 'public', existing.image_url);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
 
@@ -673,7 +674,7 @@ app.get('/admin/api/certificates', requireAuth, (req, res) => {
 });
 
 // POST /admin/api/certificates
-app.post('/admin/api/certificates', requireAuth, upload.fields([{name: 'image', maxCount: 1}]), (req, res) => {
+app.post('/admin/api/certificates', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), (req, res) => {
   try {
     const { title, issuer, date, credential_url, sort_order } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
@@ -688,7 +689,7 @@ app.post('/admin/api/certificates', requireAuth, upload.fields([{name: 'image', 
 });
 
 // PUT /admin/api/certificates/:id
-app.put('/admin/api/certificates/:id', requireAuth, upload.fields([{name: 'image', maxCount: 1}]), (req, res) => {
+app.put('/admin/api/certificates/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), (req, res) => {
   try {
     const { title, issuer, date, credential_url, sort_order } = req.body;
     const existing = db.prepare('SELECT * FROM certificates WHERE id = ?').get(req.params.id);
@@ -709,8 +710,7 @@ app.delete('/admin/api/certificates/:id', requireAuth, (req, res) => {
     const existing = db.prepare('SELECT * FROM certificates WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
     if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filename = existing.image_url.replace('/uploads/', '');
-      const filePath = path.join(UPLOADS_DIR, filename);
+      const filePath = path.join(__dirname, 'public', existing.image_url);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
     db.prepare('DELETE FROM certificates WHERE id = ?').run(req.params.id);
@@ -732,7 +732,7 @@ app.get('/admin/api/activities', requireAuth, (req, res) => {
 });
 
 // POST /admin/api/activities
-app.post('/admin/api/activities', requireAuth, upload.fields([{name: 'image', maxCount: 1}, {name: 'gallery', maxCount: 10}]), (req, res) => {
+app.post('/admin/api/activities', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), (req, res) => {
   try {
     const { title, description, certificates, date, category, sort_order } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
@@ -749,12 +749,12 @@ app.post('/admin/api/activities', requireAuth, upload.fields([{name: 'image', ma
 });
 
 // PUT /admin/api/activities/:id
-app.put('/admin/api/activities/:id', requireAuth, upload.fields([{name: 'image', maxCount: 1}, {name: 'gallery', maxCount: 10}]), (req, res) => {
+app.put('/admin/api/activities/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), (req, res) => {
   try {
     const { title, description, certificates, date, category, sort_order } = req.body;
     const existing = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
-    
+
     let currentUrls = existing.image_urls || '';
     if (req.files && req.files.image) {
       const newCover = `/uploads/${req.files.image[0].filename}`;
@@ -784,8 +784,7 @@ app.delete('/admin/api/activities/:id', requireAuth, (req, res) => {
     if (existing.image_urls) {
       existing.image_urls.split(',').filter(Boolean).forEach(url => {
         if (url.startsWith('/uploads/')) {
-          const filename = url.replace('/uploads/', '');
-          const filePath = path.join(UPLOADS_DIR, filename);
+          const filePath = path.join(__dirname, 'public', url);
           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
       });
@@ -859,7 +858,7 @@ app.get('/admin/api/partners', requireAuth, (req, res) => {
 });
 
 // POST /admin/api/partners
-app.post('/admin/api/partners', requireAuth, upload.fields([{name: 'image', maxCount: 1}]), (req, res) => {
+app.post('/admin/api/partners', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), (req, res) => {
   try {
     const { name, role, link, bio, sort_order } = req.body;
     if (!name || !role) return res.status(400).json({ error: 'Name and role are required.' });
@@ -874,7 +873,7 @@ app.post('/admin/api/partners', requireAuth, upload.fields([{name: 'image', maxC
 });
 
 // PUT /admin/api/partners/:id
-app.put('/admin/api/partners/:id', requireAuth, upload.fields([{name: 'image', maxCount: 1}]), (req, res) => {
+app.put('/admin/api/partners/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), (req, res) => {
   try {
     const { name, role, link, bio, sort_order } = req.body;
     const existing = db.prepare('SELECT * FROM partners WHERE id = ?').get(req.params.id);
@@ -895,8 +894,7 @@ app.delete('/admin/api/partners/:id', requireAuth, (req, res) => {
     const existing = db.prepare('SELECT * FROM partners WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
     if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filename = existing.image_url.replace('/uploads/', '');
-      const filePath = path.join(UPLOADS_DIR, filename);
+      const filePath = path.join(__dirname, 'public', existing.image_url);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
     db.prepare('DELETE FROM partners WHERE id = ?').run(req.params.id);
@@ -1045,14 +1043,14 @@ app.post('/admin/api/skills', requireAuth, (req, res) => {
   try {
     const { name, position, custom_pos } = req.body;
     if (!name) return res.status(400).json({ error: 'Skill name is required.' });
-    
+
     // Insert with dummy sort_order
     const result = db.prepare('INSERT INTO skills (name, sort_order) VALUES (?, 999999)').run(name);
     const newId = result.lastInsertRowid;
-    
+
     // Reorder based on position requested
     reorderItems('skills', newId, position, custom_pos);
-    
+
     res.json({ success: true, id: newId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1064,16 +1062,16 @@ app.put('/admin/api/skills/:id', requireAuth, (req, res) => {
   try {
     const { name, position, custom_pos } = req.body;
     if (!name) return res.status(400).json({ error: 'Skill name is required.' });
-    
+
     const existing = db.prepare('SELECT * FROM skills WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Skill not found.' });
-    
+
     // Update name
     db.prepare('UPDATE skills SET name = ? WHERE id = ?').run(name, req.params.id);
-    
+
     // Reorder
     reorderItems('skills', existing.id, position, custom_pos);
-    
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1085,16 +1083,16 @@ app.delete('/admin/api/skills/:id', requireAuth, (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM skills WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Skill not found.' });
-    
+
     db.prepare('DELETE FROM skills WHERE id = ?').run(req.params.id);
-    
+
     // Compact remaining sort_orders
     const items = db.prepare('SELECT id FROM skills ORDER BY sort_order ASC, id ASC').all();
     const updateStmt = db.prepare('UPDATE skills SET sort_order = ? WHERE id = ?');
     db.transaction((list) => {
       list.forEach((item, idx) => updateStmt.run(idx + 1, item.id));
     })(items);
-    
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1117,18 +1115,18 @@ app.post('/admin/api/education', requireAuth, (req, res) => {
   try {
     const { icon, title, subtitle, institution, date_range, tags, position, custom_pos } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
-    
+
     // Insert with dummy sort_order
     const result = db.prepare(`
       INSERT INTO education (icon, title, subtitle, institution, date_range, tags, sort_order)
       VALUES (?, ?, ?, ?, ?, ?, 999999)
     `).run(icon || '🎓', title, subtitle || '', institution || '', date_range || '', tags || '');
-    
+
     const newId = result.lastInsertRowid;
-    
+
     // Reorder based on position requested
     reorderItems('education', newId, position, custom_pos);
-    
+
     res.json({ success: true, id: newId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1140,20 +1138,20 @@ app.put('/admin/api/education/:id', requireAuth, (req, res) => {
   try {
     const { icon, title, subtitle, institution, date_range, tags, position, custom_pos } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
-    
+
     const existing = db.prepare('SELECT * FROM education WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Education entry not found.' });
-    
+
     // Update
     db.prepare(`
       UPDATE education
       SET icon = ?, title = ?, subtitle = ?, institution = ?, date_range = ?, tags = ?
       WHERE id = ?
     `).run(icon || '🎓', title, subtitle || '', institution || '', date_range || '', tags || '', req.params.id);
-    
+
     // Reorder
     reorderItems('education', existing.id, position, custom_pos);
-    
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1165,16 +1163,16 @@ app.delete('/admin/api/education/:id', requireAuth, (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM education WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Education entry not found.' });
-    
+
     db.prepare('DELETE FROM education WHERE id = ?').run(req.params.id);
-    
+
     // Compact remaining sort_orders
     const items = db.prepare('SELECT id FROM education ORDER BY sort_order ASC, id ASC').all();
     const updateStmt = db.prepare('UPDATE education SET sort_order = ? WHERE id = ?');
     db.transaction((list) => {
       list.forEach((item, idx) => updateStmt.run(idx + 1, item.id));
     })(items);
-    
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1184,7 +1182,7 @@ app.delete('/admin/api/education/:id', requireAuth, (req, res) => {
 /* ─── RESUME ADMIN API ─── */
 
 // POST /admin/api/resume
-app.post('/admin/api/resume', requireAuth, upload.fields([{name: 'resume', maxCount: 1}]), (req, res) => {
+app.post('/admin/api/resume', requireAuth, upload.fields([{ name: 'resume', maxCount: 1 }]), (req, res) => {
   try {
     if (!req.files || !req.files.resume) {
       return res.status(400).json({ error: 'No file uploaded.' });
@@ -1201,7 +1199,7 @@ app.post('/admin/api/resume', requireAuth, upload.fields([{name: 'resume', maxCo
 app.post('/admin/api/change-password', requireAuth, (req, res) => {
   const { current, newpass, confirm } = req.body;
   if (newpass !== confirm) return res.json({ success: false, message: 'New passwords do not match.' });
-  if (newpass.length < 6)  return res.json({ success: false, message: 'Password must be at least 6 characters.' });
+  if (newpass.length < 6) return res.json({ success: false, message: 'Password must be at least 6 characters.' });
 
   const admin = db.prepare('SELECT * FROM admin WHERE id = ?').get(req.session.admin.id);
   if (!bcrypt.compareSync(current, admin.password)) {
@@ -1233,7 +1231,7 @@ app.post('/admin/api/change-username', requireAuth, (req, res) => {
 });
 
 /* ─── CATCH-ALL → portfolio ─────────────── */
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get(['/', '/login', '/admin'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 /* ─── START ──────────────────────────────── */
 app.listen(PORT, () => {

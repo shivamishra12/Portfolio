@@ -6,24 +6,21 @@ A premium, dynamic, and full-stack personal portfolio application built with a l
 
 ## 📁 Project Structure
 
+The project has been consolidated into exactly **two main code files** to support easy hosting and single-page application (SPA) client-side routing:
+
 ```
 portfolio-v2/
-├── server.js              ← Express backend, SQLite setup, API endpoints, session auth
-├── package.json           ← Dependencies (Express, better-sqlite3, bcryptjs, multer)
+├── server.js              ← The Backend (Express server, SQLite DB tables, API routes, session auth)
+├── package.json           ← Node dependencies and startup scripts
 ├── package-lock.json      
-├── .gitignore             ← Prevents committing DB, node_modules, and user uploads
-├── portfolio.db           ← SQLite database (automatically created and seeded on start)
-├── update_projects.js     ← Dev utility script to seed/update main showcase projects
-├── views/                 
-│   ├── login.html         ← Secure Admin Panel Login page
-│   └── admin.html         ← CRUD Dashboard with 13 custom tabs
-└── public/                ← Static public files
-    ├── index.html         ← Portfolio homepage containing all dynamically-loaded sections
-    ├── style.css          ← Custom CSS (palette, responsive, glassmorphism, scrollbars)
-    ├── script.js          ← Frontend JS (cursors, particle canvas, dynamic APIs, scroll reveal)
+├── .gitignore             ← Excludes node_modules, database file, and dynamic uploads from Git
+├── portfolio.db           ← SQLite database (automatically generated and seeded on start)
+├── update_projects.js     ← Dev helper script to seed default portfolio projects
+└── public/                ← Static server folder
+    ├── index.html         ← The Frontend (Unified SPA: public portfolio, admin login, and CRUD panel)
     ├── groot_logo.png     
     ├── profile.jpeg       
-    └── uploads/           ← Stores uploaded project cover images, certificates, and resumes
+    └── uploads/           ← Stores uploaded images, certificates, and resumes
 ```
 
 ---
@@ -269,6 +266,63 @@ git push -u origin main --force
 ```
 
 The `.gitignore` configuration guarantees that the database file `portfolio.db` (containing user session details, messages, and your custom passwords) and the dependencies in `node_modules/` are not pushed to public repositories.
+
+---
+
+## ☁️ Deployment Guide (Render & Fly.io)
+
+### Option 1: Hosting on Render (Web Service)
+Since the app uses a persistent SQLite database (`portfolio.db`) and dynamic image uploads, you should attach a **Persistent Disk/Volume** to your Render Web Service.
+
+1. **Create Web Service**:
+   - Link your GitHub repository `https://github.com/shivamishra12/Portfolio`.
+   - Set Environment to `Node`.
+   - Set Build Command to `npm install`.
+   - Set Start Command to `npm start`.
+2. **Add Persistent Disk**:
+   - In the service settings, go to the **Disk** section.
+   - Add a Disk with Mount Path: `/data`.
+   - Size: `1 GB` (fully free).
+3. **Configure Environment Variables**:
+   - Add `DATABASE_PATH` = `/data/portfolio.db` (this moves the SQLite DB to the persistent volume).
+   - Add `UPLOADS_PATH` = `/data/uploads` (this moves the dynamic uploads to the persistent volume).
+   - Add `ADMIN_EMAIL` = `your-secure-email@example.com`.
+   - Add `ADMIN_PASSWORD` = `your-secure-password`.
+   - Add `SESSION_SECRET` = `some-random-long-secret-string`.
+4. **Deploy**: Click deploy! Your app will be live and your database and uploads will persist across updates.
+
+---
+
+### Option 2: Hosting on Fly.io (Completely Free)
+Fly.io provides a free tier with 3 GB persistent volumes, which is perfect for keeping SQLite data.
+
+1. **Install flyctl**: Install the command line tool from [fly.io](https://fly.io).
+2. **Launch Application**:
+   ```bash
+   fly launch
+   ```
+   Follow the prompts to name your app and select a region. Do not set up Postgres or Redis.
+3. **Create Persistent Storage**:
+   Create a 1GB volume named `portfolio_data`:
+   ```bash
+   fly volumes create portfolio_data --size 1
+   ```
+4. **Configure `fly.toml`**:
+   Mount the volume by appending this to your `fly.toml` file:
+   ```toml
+   [mounts]
+     source = "portfolio_data"
+     destination = "/data"
+   ```
+5. **Set Environment Variables**:
+   Set secrets dynamically via the CLI:
+   ```bash
+   fly secrets set ADMIN_EMAIL="your-secure-email@example.com" ADMIN_PASSWORD="your-secure-password" DATABASE_PATH="/data/portfolio.db" UPLOADS_PATH="/data/uploads" SESSION_SECRET="your-long-secret-key"
+   ```
+6. **Deploy**:
+   ```bash
+   fly deploy
+   ```
 
 ---
 
