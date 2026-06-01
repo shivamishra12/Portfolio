@@ -3478,9 +3478,17 @@ function initAdminPanel() {
   const nav=document.getElementById('navbar');
   window.addEventListener('scroll',()=>nav.classList.toggle('scrolled',window.scrollY>50));
   document.querySelectorAll('a[href^="#"]').forEach(l=>l.addEventListener('click',e=>{
-    e.preventDefault();
-    const t=document.querySelector(l.getAttribute('href'));
-    if(t)t.scrollIntoView({behavior:'smooth'});
+    const href = l.getAttribute('href');
+    if (!href || !href.startsWith('#') || href === '#') return;
+    try {
+      const t = document.querySelector(href);
+      if (t) {
+        e.preventDefault();
+        t.scrollIntoView({behavior:'smooth'});
+      }
+    } catch (err) {
+      // Ignore invalid selector errors
+    }
   }));
 })();
 
