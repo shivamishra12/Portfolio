@@ -1,315 +1,60 @@
 # 🌱 Shivam Mishra — AI Developer Portfolio (v2)
 
-A premium, dynamic, and full-stack personal portfolio application built with a lightweight and fast Node.js + Express backend, MongoDB database (via Mongoose), and vanilla HTML/CSS/JS frontend featuring a high-fidelity glassmorphism design, custom particle connection backgrounds, mouse-tilt cursor animations, and a secure CRUD Admin Console.
+A premium, high-fidelity personal portfolio and content management application designed to showcase technical expertise, projects, academic background, and publications. This application features a unified frontend user interface combined with a secure, full-stack administration console to manage all portfolio data dynamically in real time.
 
 ---
 
-## 📁 Project Structure
+## 🌟 Key Features
 
-```text
-portfolio-v2/
-├── server.js              ← Express server, Mongoose models, session auth, DB-backed media serving
-├── package.json           ← Node dependencies and startup scripts
-├── package-lock.json
-├── .gitignore             ← Excludes node_modules and local .env configurations from Git
-├── .env                   ← Local environment variables (NOT committed to Git)
-└── public/
-    ├── index.html         ← Unified SPA frontend
-    ├── groot_logo.png
-    └── profile.jpeg
-```
+### 1. High-Fidelity User Experience
+- **Sleek Glassmorphism Design**: Custom dark-mode theme utilizing refined backdrop blur filters, custom glow effects, and modern CSS gradients.
+- **Interactive Connections Canvas**: A dynamic connection net background rendered using HTML5 Canvas, mapping and connecting node coordinates relative to mouse distance.
+- **Card Tilt Micro-Animations**: Custom mouse-tilt animations calculated via cursor coordinates to dynamically rotate and lift showcase elements.
+- **Client-Side Router**: Fast, responsive Single Page Application (SPA) layout containing smooth section switching and route navigation.
 
----
+### 2. Secure Admin Console
+- **Projects Manager**: Create, edit, delete, and pin key projects. Customize gradients, description fields, links, and icons.
+- **Academic & Professional Timelines**: Log education, background details, certifications, and technical skills.
+- **Activities & Hackathons**: Log contest details, categories, dates, and attach rich image galleries.
+- **Messages Inbox**: Access and manage visitor inquiries sent via the contact form, featuring IP address logging and status tracking.
+- **Administrative Controls**: Secure username, password, and PDF resume updates.
 
-# 🚀 Setup & Run
-
-## 1. Requirements
-
-Ensure you have:
-
-* Node.js v18+
-* MongoDB Atlas account (or local MongoDB instance)
+### 3. Server Architecture
+- **Zero-State Filesystem**: All uploaded media (such as resumes, certificates, and project covers) are converted to binary data (`Buffer`) and stored directly within the MongoDB database. The server retrieves and streams files dynamically, allowing the application to run seamlessly in stateless environments.
+- **Session Persistence**: Node.js session authentication is persisted directly in MongoDB using a database-backed session store, preventing administrative logout events during server restarts.
 
 ---
 
-## 2. Install Dependencies
+## 🛠️ Technology Stack
 
-```bash
-npm install
-```
+The application is built using modern, fast, and lightweight open-source technologies:
 
----
+### Backend
+- **Core Environment**: [Node.js](https://nodejs.org) (v18+)
+- **Server Framework**: [Express](https://expressjs.com) (HTTP server and RESTful router)
+- **Object Modeling**: [Mongoose](https://mongoosejs.com) (MongoDB ODM)
+- **Authentication**: [Express Session](https://github.com/expressjs/session) with secure sessions
+- **Session Storage**: [Connect Mongo](https://github.com/jaredhanson/connect-mongo) (database session serializer)
+- **Encryption**: [BcryptJS](https://github.com/dcode/bcryptjs) (secure salted password hashing)
+- **File Upload Engine**: [Multer](https://github.com/expressjs/multer) (configured for in-memory file buffers)
+- **Configuration**: [Dotenv](https://github.com/motdotla/dotenv) (local environment loader)
 
-## 3. Create Environment Variables
-
-Create a file named `.env` in the project root:
-
-```env
-# MongoDB Connection String
-MONGODB_URI=mongodb+srv://<db_username>:<db_password>@cluster.mongodb.net/portfolio?retryWrites=true&w=majority
-
-# Application Configuration
-PORT=3000
-
-# Authentication
-ADMIN_EMAIL=<your_admin_email>
-ADMIN_PASSWORD=<your_admin_password>
-
-# Session Security
-SESSION_SECRET=<your_secure_random_session_secret>
-
-# Environment
-NODE_ENV=development
-
-# Database Seeding
-ENABLE_SEEDING=true
-```
-
-> ⚠️ Never commit the `.env` file to GitHub.
+### Frontend
+- **Structure**: Vanilla HTML5
+- **Styling**: Vanilla CSS3 (Custom animations, Syne/Space Mono typography, variables, responsive breakpoints)
+- **Interactions**: Pure Vanilla JavaScript (Client-side router, scroll reveal triggers, 2D particle canvas, dynamic modal handlers, AJAX endpoints)
 
 ---
 
-## 4. Run the Application
-
-### Production Mode
-
-```bash
-npm start
-```
-
-### Development Mode
-
-```bash
-npm run dev
-```
-
----
-
-## 5. Access the Application
-
-Public Portfolio:
-
-```text
-http://localhost:3000
-```
-
-Admin Panel:
-
-```text
-http://localhost:3000/admin
-```
-
----
-
-# 🗄️ Database Architecture
-
-The application uses MongoDB as the primary database and automatically creates collections on startup.
-
-### Collections
-
-* Admin
-* Project
-* Certificate
-* Activity
-* UpcomingProject
-* Partner
-* Message
-* Setting
-* Skill
-* Education
-* Blog
-* Social
-* Media
-
----
-
-# 💾 Database-Backed File Storage
-
-All uploaded files are stored directly inside MongoDB.
-
-Supported uploads:
-
-* Resume PDFs
-* Project Images
-* Certificate Images
-* Activity Images
-* Partner Images
-
-Benefits:
-
-* No dependency on Render's filesystem
-* No data loss after redeployments
-* No persistent disk required
-* Compatible with Render Free Tier
-
-Uploaded files are served through:
-
-```text
-/uploads/:filename
-```
-
----
-
-# 🌐 Public API
-
-| Endpoint            | Method | Description            |
-| ------------------- | ------ | ---------------------- |
-| `/api/projects`     | GET    | List all projects      |
-| `/api/projects/:id` | GET    | Get single project     |
-| `/api/skills`       | GET    | List skills            |
-| `/api/education`    | GET    | List education items   |
-| `/api/upcoming`     | GET    | List upcoming projects |
-| `/api/activities`   | GET    | List activities        |
-| `/api/certificates` | GET    | List certificates      |
-| `/api/partners`     | GET    | List partners          |
-| `/api/blogs`        | GET    | List blogs             |
-| `/api/socials`      | GET    | List social links      |
-| `/api/resume`       | GET    | Get current resume     |
-| `/api/messages`     | POST   | Submit contact form    |
-
----
-
-# 🔐 Admin Dashboard
-
-All admin routes require authentication and are protected by session-based authorization.
-
-### Features
-
-* Project Management
-* Certificate Management
-* Activity Management
-* Partner Management
-* Blog Management
-* Skills Management
-* Education Management
-* Resume Upload
-* Contact Message Review
-* Change Username
-* Change Password
-
-Sessions are securely stored in MongoDB using `connect-mongo`.
-
----
-
-# 🛡️ Security Features
-
-### Environment Validation
-
-The server refuses to start if any required environment variable is missing:
-
-* MONGODB_URI
-* SESSION_SECRET
-* ADMIN_EMAIL
-* ADMIN_PASSWORD
-
-### Session Security
-
-* HTTP-only cookies
-* Secure cookies in production
-* SameSite protection
-* MongoDB-backed sessions
-
-### Upload Security
-
-* Maximum upload size: 5MB
-* Images and PDFs only
-* Database-backed storage
-* Automatic media cleanup on deletion
-
-### Password Security
-
-* Passwords hashed using bcrypt
-* No hardcoded credentials
-* Session secrets stored in environment variables
-
----
-
-# ☁️ Deployment Guide (Render + MongoDB Atlas)
-
-## Step 1: Create MongoDB Atlas Cluster
-
-1. Create a free MongoDB Atlas account.
-2. Deploy an M0 Free Tier cluster.
-3. Create a database user.
-4. Configure Network Access:
-
-```text
-0.0.0.0/0
-```
-
-5. Copy the MongoDB connection string.
-
----
-
-## Step 2: Deploy on Render
-
-1. Create a new Web Service.
-2. Connect your GitHub repository.
-3. Configure:
-
-```text
-Runtime: Node
-Build Command: npm install
-Start Command: npm start
-Instance Type: Free
-```
-
----
-
-## Step 3: Configure Render Environment Variables
-
-Add the following variables:
-
-```env
-MONGODB_URI=<your_mongodb_connection_string>
-ADMIN_EMAIL=<your_admin_email>
-ADMIN_PASSWORD=<your_admin_password>
-SESSION_SECRET=<your_secure_random_session_secret>
-NODE_ENV=production
-ENABLE_SEEDING=false
-```
-
-### First Deployment
-
-If the database is empty:
-
-```env
-ENABLE_SEEDING=true
-```
-
-Deploy once.
-
-After the admin account and default data are created:
-
-```env
-ENABLE_SEEDING=false
-```
-
-Redeploy.
-
----
-
-## Step 4: Verify Deployment
-
-Check:
-
-* Portfolio loads successfully
-* Admin login works
-* CRUD operations work
-* File uploads work
-* Resume download works
-* MongoDB collections are created
-
----
-
-# 📌 Important Security Notes
-
-* Never commit `.env` to GitHub.
-* Never publish database credentials.
-* Never publish admin credentials.
-* Never publish session secrets.
-* Rotate credentials immediately if they are accidentally exposed.
-* Keep all secrets inside Render Environment Variables or local `.env` files only.
+## 🔐 Security & Hardening
+
+This application incorporates industry-standard security practices to safeguard administrator portals and user information:
+
+- **Strict Environment Checks**: Verifies required database, session, and credential parameters on boot, terminating immediately with a clear logging warning if configurations are missing.
+- **Proxy Handling**: Express is configured to trust reverse proxies (`trust proxy`), ensuring secure headers and client IP logging function correctly behind load balancers.
+- **Session Cookie Hardening**: Cookies are configured with `httpOnly: true` (prevents cross-site scripting/XSS cookie theft), `secure: true` in production (enforces HTTPS transmission), and `sameSite: 'lax'` (guards against CSRF attacks).
+- **Password Salting**: Admin credentials are encrypted and stored using salted Bcrypt hashes.
+- **File Size Constraints**: Restricts multi-part uploads to a maximum file size of 5MB, preventing document buffer overflows.
 
 ---
 
