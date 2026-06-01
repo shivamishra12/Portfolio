@@ -243,10 +243,10 @@ async function seedDatabase() {
       console.log(`✅ Default admin created — username: ${adminEmail}`);
     }
 
-    // Seed resume_url setting
-    const resumeUrlExists = await Setting.findOne({ key: 'resume_url' });
-    if (!resumeUrlExists) {
-      await Setting.create({ key: 'resume_url', value: '' });
+    // Seed resume_link setting
+    const resumeLinkExists = await Setting.findOne({ key: 'resume_link' });
+    if (!resumeLinkExists) {
+      await Setting.create({ key: 'resume_link', value: '' });
     }
 
     // Seed activities
@@ -661,7 +661,7 @@ app.get('/api/partners', async (req, res) => {
 // GET /api/resume
 app.get('/api/resume', async (req, res) => {
   try {
-    const row = await Setting.findOne({ key: 'resume_url' });
+    const row = await Setting.findOne({ key: 'resume_link' });
     res.json({ url: row ? row.value : '' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1482,18 +1482,14 @@ app.delete('/admin/api/education/:id', requireAuth, async (req, res) => {
 /* ─── RESUME ADMIN API ─── */
 
 // POST /admin/api/resume
-app.post('/admin/api/resume', requireAuth, upload.fields([{ name: 'resume', maxCount: 1 }]), async (req, res) => {
+app.post('/admin/api/resume', requireAuth, async (req, res) => {
   try {
-    if (!req.files || !req.files.resume) {
-      return res.status(400).json({ error: 'No file uploaded.' });
+    const { resumeLink } = req.body;
+    if (!resumeLink) {
+      return res.status(400).json({ error: 'Resume link is required.' });
     }
-    const currentResume = await Setting.findOne({ key: 'resume_url' });
-    if (currentResume && currentResume.value) {
-      await deleteFile(currentResume.value);
-    }
-    const resumeUrl = await saveFile(req.files.resume[0]);
-    await Setting.updateOne({ key: 'resume_url' }, { value: resumeUrl }, { upsert: true });
-    res.json({ success: true, url: resumeUrl });
+    await Setting.updateOne({ key: 'resume_link' }, { value: resumeLink }, { upsert: true });
+    res.json({ success: true, url: resumeLink });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

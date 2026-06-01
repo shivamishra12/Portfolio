@@ -2988,26 +2988,20 @@ footer p {
     <!-- ══ TAB: RESUME ══ -->
     <div id="tab-resume" class="tab-content" style="display:none">
       <div class="section-card" style="max-width: 600px;">
-        <h2>Upload Resume (PDF)</h2>
+        <h2>Resume Google Drive Link</h2>
         <p style="font-family:var(--ff-m); font-size:0.8rem; color:var(--w60); margin-bottom: 20px; line-height: 1.6;">
-          Upload your latest resume PDF here. Once uploaded, the "Download Resume" buttons on the public portfolio will automatically update to link to this file.
+          Save your resume Google Drive link here. Once saved, the "Download Resume" buttons on the public portfolio will open this Google Drive link in a new tab.
         </p>
-        <div style="background:var(--w20); padding: 12px 18px; border-radius: 8px; font-family: var(--ff-m); font-size: 0.8rem; margin-bottom: 24px;">
-          <span>Current File: </span>
-          <a id="currentResumeLink" href="#" target="_blank" style="color:var(--pink); font-weight:700; text-decoration:none;">No resume uploaded yet</a>
+        <div style="background:var(--w20); padding: 12px 18px; border-radius: 8px; font-family: var(--ff-m); font-size: 0.8rem; margin-bottom: 24px; word-break: break-all;">
+          <span>Current Link: </span>
+          <a id="currentResumeLink" href="#" target="_blank" style="color:var(--pink); font-weight:700; text-decoration:none;">No link saved yet</a>
         </div>
-        <form id="resumeForm" enctype="multipart/form-data">
+        <form id="resumeForm">
           <div class="form-group" style="margin-bottom:20px;">
-            <div class="upload-area" id="resumeUploadArea" style="padding: 40px; border-color: rgba(247,37,133,0.35);">
-              <input type="file" id="resume-file" name="resume" accept="application/pdf" required style="width: 100%; height: 100%; position: absolute; inset: 0; opacity: 0; cursor: pointer;"/>
-              <div>
-                <div style="font-size:2.5rem; margin-bottom:12px;">📄</div>
-                <div style="font-family:var(--ff-m); font-size:0.85rem; color:var(--w);">Click or Drag & Drop Resume PDF</div>
-                <div style="font-family:var(--ff-m); font-size:0.68rem; color:rgba(240,246,255,0.3); margin-top:6px;">PDF files only, up to 5MB</div>
-              </div>
-            </div>
+            <label style="display:block; font-family:var(--ff-m); font-size:0.72rem; letter-spacing:2px; text-transform:uppercase; color:var(--w60); margin-bottom:8px;">Google Drive Resume URL</label>
+            <input type="url" id="resume-link" name="resumeLink" placeholder="e.g. https://drive.google.com/file/d/.../view" required style="width:100%; background:rgba(240,246,255,0.05); border:1px solid rgba(240,246,255,0.12); border-radius:12px; padding:14px 18px; color:var(--white); font-family:var(--ff-m); font-size:0.92rem; outline:none; transition:border-color 0.25s, box-shadow 0.25s;"/>
           </div>
-          <button type="submit" class="btn-submit" id="resumeSubmitBtn" style="padding: 12px 30px;">Upload PDF Resume</button>
+          <button type="submit" class="btn-submit" id="resumeSubmitBtn" style="padding: 12px 30px;">Save Resume Link</button>
         </form>
       </div>
     </div>
@@ -3672,12 +3666,14 @@ async function loadResume() {
       const aboutBtn = document.getElementById('resumeBtnAbout');
       if (heroBtn) {
         heroBtn.href = data.url;
-        heroBtn.setAttribute('download', 'Shivam_Mishra_Resume.pdf');
+        heroBtn.removeAttribute('download');
+        heroBtn.setAttribute('target', '_blank');
         heroBtn.style.display = 'inline-block';
       }
       if (aboutBtn) {
         aboutBtn.href = data.url;
-        aboutBtn.setAttribute('download', 'Shivam_Mishra_Resume.pdf');
+        aboutBtn.removeAttribute('download');
+        aboutBtn.setAttribute('target', '_blank');
         aboutBtn.style.display = 'inline-block';
       }
     }
@@ -5037,12 +5033,15 @@ async function adminLoadResume() {
     const res = await fetch('/api/resume');
     const data = await res.json();
     const link = document.getElementById('currentResumeLink');
+    const input = document.getElementById('resume-link');
     if (data && data.url) {
       link.href = data.url;
-      link.textContent = '📄 Download Uploaded PDF (' + data.url.replace('/uploads/', '') + ')';
+      link.textContent = data.url;
+      if (input) input.value = data.url;
     } else {
       link.removeAttribute('href');
-      link.textContent = 'No resume uploaded yet';
+      link.textContent = 'No link saved yet';
+      if (input) input.value = '';
     }
   } catch (err) {
     showToast('Failed to load resume info', 'error');
@@ -5051,29 +5050,29 @@ async function adminLoadResume() {
 
 async function handleResumeSubmit(e) {
   e.preventDefault();
-  const file = document.getElementById('resume-file').files[0];
-  if (!file) return showToast('Please select a file to upload.', 'error');
-  
-  const fd = new FormData();
-  fd.append('resume', file);
+  const resumeLink = document.getElementById('resume-link').value.trim();
+  if (!resumeLink) return showToast('Please enter a Google Drive link.', 'error');
   
   const btn = document.getElementById('resumeSubmitBtn');
-  btn.disabled = true; btn.textContent = 'Uploading...';
+  btn.disabled = true; btn.textContent = 'Saving...';
   try {
-    const res = await fetch('/admin/api/resume', { method: 'POST', body: fd });
+    const res = await fetch('/admin/api/resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resumeLink })
+    });
     const data = await res.json();
     if (data.success) {
-      showToast('✅ Resume uploaded successfully!', 'success');
+      showToast('✅ Resume link saved successfully!', 'success');
       adminLoadResume();
-      document.getElementById('resumeForm').reset();
     } else {
-      showToast(data.error || 'Upload failed', 'error');
+      showToast(data.error || 'Save failed', 'error');
     }
   } catch (err) {
     showToast('Connection error', 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Upload PDF Resume';
+    btn.textContent = 'Save Resume Link';
   }
 }
 
