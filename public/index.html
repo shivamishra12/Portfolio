@@ -3545,7 +3545,7 @@ function renderProjects(projects) {
       : `<span class="pcard-emoji">${p.emoji || '🚀'}</span>`;
 
     return `
-    <div class="project-card reveal" style="--rd:${i*0.07}s" onclick="openModal(${p.id})">
+    <div class="project-card reveal" style="--rd:${i*0.07}s" onclick="openModal('${p.id}')">
       <div class="pcard-img" style="background:${p.gradient || 'linear-gradient(135deg,#1a1a2e,#16213e)'}">
         ${img}
       </div>
@@ -4257,8 +4257,8 @@ function adminRenderTable(projects) {
       </td>
       <td class="td-date">${formatDate(p.created_at)}</td>
       <td>
-        <button class="btn-edit" onclick="adminEditProject(${p.id})">✏ Edit</button>
-        <button class="btn-delete" onclick="adminDeleteProject(${p.id}, '${escHtml(p.title)}')">🗑 Delete</button>
+        <button class="btn-edit" onclick="adminEditProject('${p.id}')">✏ Edit</button>
+        <button class="btn-delete" onclick="adminDeleteProject('${p.id}', '${escHtml(p.title)}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
@@ -4538,8 +4538,8 @@ function renderCertsTable(certs) {
       <td>${escHtml(c.issuer)}</td>
       <td>${c.sort_order}</td>
       <td>
-        <button class="btn-edit" onclick="editCert(${c.id})">✏ Edit</button>
-        <button class="btn-delete" onclick="deleteCert(${c.id}, '${escHtml(c.title)}')">🗑 Delete</button>
+        <button class="btn-edit" onclick="editCert('${c.id}')">✏ Edit</button>
+        <button class="btn-delete" onclick="deleteCert('${c.id}', '${escHtml(c.title)}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
@@ -4641,8 +4641,8 @@ function renderActivitiesTable(acts) {
       <td>${escHtml(a.category)}</td>
       <td>${a.sort_order}</td>
       <td>
-        <button class="btn-edit" onclick="editActivity(${a.id})">✏ Edit</button>
-        <button class="btn-delete" onclick="deleteActivity(${a.id}, '${escHtml(a.title)}')">🗑 Delete</button>
+        <button class="btn-edit" onclick="editActivity('${a.id}')">✏ Edit</button>
+        <button class="btn-delete" onclick="deleteActivity('${a.id}', '${escHtml(a.title)}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
@@ -4750,8 +4750,8 @@ function renderUpcomingTable(projects) {
       <td><span class="tag-chip">${escHtml(p.status)}</span></td>
       <td>${p.sort_order}</td>
       <td>
-        <button class="btn-edit" onclick="editUpcoming(${p.id})">✏ Edit</button>
-        <button class="btn-delete" onclick="deleteUpcoming(${p.id}, '${escHtml(p.title)}')">🗑 Delete</button>
+        <button class="btn-edit" onclick="editUpcoming('${p.id}')">✏ Edit</button>
+        <button class="btn-delete" onclick="deleteUpcoming('${p.id}', '${escHtml(p.title)}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
@@ -4858,8 +4858,8 @@ function renderPartnersTable(partners) {
       <td>${escHtml(p.role)}</td>
       <td>${p.sort_order}</td>
       <td>
-        <button class="btn-edit" onclick="editPartner(${p.id})">✏ Edit</button>
-        <button class="btn-delete" onclick="deletePartner(${p.id}, '${escHtml(p.name)}')">🗑 Delete</button>
+        <button class="btn-edit" onclick="editPartner('${p.id}')">✏ Edit</button>
+        <button class="btn-delete" onclick="deletePartner('${p.id}', '${escHtml(p.name)}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
@@ -4983,8 +4983,8 @@ function renderMessagesTable(msgs) {
       <td class="td-date">${escHtml(m.ip)}</td>
       <td style="max-width:300px; word-wrap:break-word; font-size:0.8rem;">${escHtml(m.message)}</td>
       <td>
-        ${m.is_read ? '' : `<button class="btn-edit" onclick="markMessageRead(${m.id})" style="background:rgba(46,204,113,0.2); border-color:rgba(46,204,113,0.5); color:#7ef5a8;">Read</button>`}
-        <button class="btn-delete" onclick="deleteMessage(${m.id})">🗑 Delete</button>
+        ${m.is_read ? '' : `<button class="btn-edit" onclick="markMessageRead('${m.id}')" style="background:rgba(46,204,113,0.2); border-color:rgba(46,204,113,0.5); color:#7ef5a8;">Read</button>`}
+        <button class="btn-delete" onclick="deleteMessage('${m.id}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
@@ -5095,8 +5095,8 @@ function renderSkillsTable(skills) {
       <td class="td-title">${escHtml(s.name)}</td>
       <td>${s.sort_order}</td>
       <td>
-        <button class="btn-edit" onclick="editSkill(${s.id})">✏ Edit</button>
-        <button class="btn-delete" onclick="deleteSkill(${s.id}, '${escHtml(s.name)}')">🗑 Delete</button>
+        <button class="btn-edit" onclick="editSkill('${s.id}')">✏ Edit</button>
+        <button class="btn-delete" onclick="deleteSkill('${s.id}', '${escHtml(s.name)}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
@@ -5207,8 +5207,8 @@ function renderEducationTable(edu) {
         <td style="max-width:300px; word-wrap:break-word; font-size:0.8rem; color:var(--w60);">${escHtml(details)}</td>
         <td>${e.sort_order}</td>
         <td>
-          <button class="btn-edit" onclick="editEdu(${e.id})">✏ Edit</button>
-          <button class="btn-delete" onclick="deleteEdu(${e.id}, '${escHtml(e.title)}')">🗑 Delete</button>
+          <button class="btn-edit" onclick="editEdu('${e.id}')">✏ Edit</button>
+          <button class="btn-delete" onclick="deleteEdu('${e.id}', '${escHtml(e.title)}')">🗑 Delete</button>
         </td>
       </tr>
     `;
@@ -5336,8 +5336,8 @@ function renderBlogsTable(blogs) {
       <td><span class="tag-chip">${escHtml(b.platform)}</span></td>
       <td>${b.sort_order}</td>
       <td>
-        <button class="btn-edit" onclick="editBlog(${b.id})">✏ Edit</button>
-        <button class="btn-delete" onclick="deleteBlog(${b.id}, '${escHtml(b.title)}')">🗑 Delete</button>
+        <button class="btn-edit" onclick="editBlog('${b.id}')">✏ Edit</button>
+        <button class="btn-delete" onclick="deleteBlog('${b.id}', '${escHtml(b.title)}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
@@ -5444,8 +5444,8 @@ function renderSocialsTable(socials) {
       <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.8rem;"><a href="${escHtml(s.url)}" target="_blank" style="color:var(--pink); text-decoration:none;">${escHtml(s.url)}</a></td>
       <td>${s.sort_order}</td>
       <td>
-        <button class="btn-edit" onclick="editSocial(${s.id})">✏ Edit</button>
-        <button class="btn-delete" onclick="deleteSocial(${s.id}, '${escHtml(s.name)}')">🗑 Delete</button>
+        <button class="btn-edit" onclick="editSocial('${s.id}')">✏ Edit</button>
+        <button class="btn-delete" onclick="deleteSocial('${s.id}', '${escHtml(s.name)}')">🗑 Delete</button>
       </td>
     </tr>
   `).join('');
