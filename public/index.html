@@ -3686,8 +3686,9 @@ async function loadUpcoming() {
     const grid = document.getElementById('upcomingGrid');
     
     if (!projects.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;font-family:\'Space Mono\',monospace;color:rgba(240,246,255,0.4);font-size:0.82rem;">No upcoming projects planned yet.</div>';
-      grid.style.display = 'grid';
+      document.getElementById('upcoming').style.display = 'none';
+      const link = document.querySelector('a[href="#upcoming"]');
+      if (link) link.closest('li').style.display = 'none';
       return;
     }
     
@@ -3730,8 +3731,9 @@ async function loadActivities() {
     const grid = document.getElementById('activitiesGrid');
     
     if (!activities.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;font-family:\'Space Mono\',monospace;color:rgba(240,246,255,0.4);font-size:0.82rem;">No activities listed yet.</div>';
-      grid.style.display = 'grid';
+      document.getElementById('activities').style.display = 'none';
+      const link = document.querySelector('a[href="#activities"]');
+      if (link) link.closest('li').style.display = 'none';
       return;
     }
     
@@ -3783,8 +3785,9 @@ async function loadCertificates() {
     const grid = document.getElementById('certificatesGrid');
     
     if (!certificates.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;font-family:\'Space Mono\',monospace;color:rgba(240,246,255,0.4);font-size:0.82rem;">No certifications listed yet.</div>';
-      grid.style.display = 'grid';
+      document.getElementById('certificates').style.display = 'none';
+      const link = document.querySelector('a[href="#certificates"]');
+      if (link) link.closest('li').style.display = 'none';
       return;
     }
     
@@ -3822,8 +3825,9 @@ async function loadPartners() {
     const grid = document.getElementById('partnersGrid');
     
     if (!partners.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;font-family:\'Space Mono\',monospace;color:rgba(240,246,255,0.4);font-size:0.82rem;">No collaborators listed yet.</div>';
-      grid.style.display = 'grid';
+      document.getElementById('partners').style.display = 'none';
+      const link = document.querySelector('a[href="#partners"]');
+      if (link) link.closest('li').style.display = 'none';
       return;
     }
     
@@ -3972,8 +3976,9 @@ async function loadBlogs() {
     const grid = document.getElementById('blogsGrid');
 
     if (!blogs.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;font-family:\'Space Mono\',monospace;color:rgba(240,246,255,0.4);font-size:0.82rem;">No blogs posted yet.</div>';
-      grid.style.display = 'grid';
+      document.getElementById('blogs').style.display = 'none';
+      const link = document.querySelector('a[href="#blogs"]');
+      if (link) link.closest('li').style.display = 'none';
       return;
     }
 

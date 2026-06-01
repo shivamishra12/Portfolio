@@ -160,13 +160,6 @@ if (!resumeUrlExists) {
 }
 
 // Seed other sections if empty
-const certCount = db.prepare('SELECT COUNT(*) as c FROM certificates').get().c;
-if (certCount === 0) {
-  const insert = db.prepare('INSERT INTO certificates (title, issuer, date, image_url, credential_url, sort_order) VALUES (?, ?, ?, ?, ?, ?)');
-  insert.run('Neural Networks and Deep Learning', 'DeepLearning.AI', '2024-10-15', '', 'https://coursera.org/verify/sample1', 1);
-  insert.run('TensorFlow Developer Professional Certificate', 'DeepLearning.AI', '2025-01-20', '', 'https://coursera.org/verify/sample2', 2);
-  console.log('✅ Sample certificates seeded.');
-}
 
 const activityCount = db.prepare('SELECT COUNT(*) as c FROM activities').get().c;
 if (activityCount === 0) {
@@ -182,14 +175,6 @@ if (upcomingCount === 0) {
   insert.run('AI Medical Assistant', 'A multimodal AI diagnostic assistant combining vision-language models to analyze X-Ray scans and generate contextual notes.', '2026-08-30', 'in-progress', 'FastAPI,PyTorch,React', 1);
   insert.run('Decentralized AI Model Marketplace', 'A blockchain-based marketplace enabling trustless, secure verification and leasing of custom machine learning models.', '2026-11-15', 'planning', 'Solidity,Web3.js,Python', 2);
   console.log('✅ Sample upcoming projects seeded.');
-}
-
-const partnerCount = db.prepare('SELECT COUNT(*) as c FROM partners').get().c;
-if (partnerCount === 0) {
-  const insert = db.prepare('INSERT INTO partners (name, role, image_url, link, bio, sort_order) VALUES (?, ?, ?, ?, ?, ?)');
-  insert.run('Sarah Jenkins', 'ML Researcher', '', 'https://linkedin.com', 'Collaborated on the Deepfake Detection System. Specialized in facial forensics CNN optimization.', 1);
-  insert.run('Amit Patel', 'Data Engineer', '', 'https://github.com', 'Collaborated on MicroCareerAI backend database design and Apache Airflow ETL pipeline orchestration.', 2);
-  console.log('✅ Sample partners seeded.');
 }
 
 // Seed skills if empty
