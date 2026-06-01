@@ -39,6 +39,7 @@ mongoose.connect(MONGODB_URI)
   })
   .catch(err => {
     console.error('❌  MongoDB connection error:', err);
+    process.exit(1);
   });
 
 const schemaOptions = {
@@ -199,7 +200,9 @@ const Social = mongoose.model('Social', socialSchema);
 const mediaSchema = new mongoose.Schema({
   filename: { type: String, required: true, unique: true },
   contentType: { type: String, required: true },
-  data: { type: Buffer, required: true }
+  data: { type: Buffer, required: true },
+  size: { type: Number, default: 0 },
+  uploadedAt: { type: Date, default: Date.now }
 });
 const Media = mongoose.model('Media', mediaSchema);
 
@@ -211,7 +214,8 @@ async function saveFile(file) {
   const media = new Media({
     filename,
     contentType: file.mimetype,
-    data: file.buffer
+    data: file.buffer,
+    size: file.size || 0
   });
   await media.save();
   return `/uploads/${filename}`;
