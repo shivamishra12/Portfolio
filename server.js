@@ -4,6 +4,15 @@
    ══════════════════════════════════════════════ */
 require('dotenv').config();
 
+// Validate critical environment variables
+const requiredEnv = ['MONGODB_URI', 'SESSION_SECRET', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'];
+const missingEnv = requiredEnv.filter(name => !process.env[name]);
+if (missingEnv.length > 0) {
+  console.error(`\n❌  CRITICAL CONFIGURATION ERROR: Missing required environment variable(s): ${missingEnv.join(', ')}`);
+  console.error('Please configure them in your .env file or production environment settings.\n');
+  process.exit(1);
+}
+
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
@@ -13,19 +22,20 @@ const MongoStore = require('connect-mongo');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const mongoose = require('mongoose');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* ─── DATABASE SETUP ─────────────────────── */
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('✅  Connected to MongoDB successfully');
-    seedDatabase();
+    if (process.env.ENABLE_SEEDING === 'true') {
+      seedDatabase();
+    }
   })
   .catch(err => {
     console.error('❌  MongoDB connection error:', err);
@@ -216,8 +226,8 @@ async function deleteFile(url) {
 /* ─── DATABASE SEEDING ───────────────────── */
 async function seedDatabase() {
   try {
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
 
     // Clear and reset legacy simple admin username if it exists
     await Admin.deleteOne({ username: 'admin' });
@@ -448,7 +458,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Configure session with MongoStore for database session backing
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'groot-is-groot-secret-key-2025',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
@@ -1522,6 +1532,20 @@ app.post('/admin/api/change-username', requireAuth, async (req, res) => {
   }
 });
 
+/* ─── ERROR HANDLER ───────────────────────── */
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File size limit exceeded. Maximum size is 5MB.' });
+    }
+    return res.status(400).json({ error: err.message });
+  }
+  if (err) {
+    return res.status(500).json({ error: err.message });
+  }
+  next();
+});
+
 /* ─── CATCH-ALL → portfolio ─────────────── */
 app.get(['/', '/login', '/admin'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
@@ -1529,5 +1553,5 @@ app.get(['/', '/login', '/admin'], (req, res) => res.sendFile(path.join(__dirnam
 app.listen(PORT, () => {
   console.log(`\n🚀  Portfolio running at → http://localhost:${PORT}`);
   console.log(`🔒  Admin panel         → http://localhost:${PORT}/admin`);
-  console.log(`🔑  Login credentials   → Configured via ADMIN_EMAIL and ADMIN_PASSWORD environment variables (Fallback: admin@example.com / password123)\n`);
+  console.log(`🔑  Login credentials   → Configured via ADMIN_EMAIL and ADMIN_PASSWORD environment variables\n`);
 });
