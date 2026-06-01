@@ -6,193 +6,311 @@ A premium, dynamic, and full-stack personal portfolio application built with a l
 
 ## 📁 Project Structure
 
-The project is structured to make hosting and deployment extremely easy, featuring a unified single-page application (SPA) client-side routing layout:
-
 ```text
 portfolio-v2/
-├── server.js              ← The Backend (Express server, Mongoose models, session auth, DB-backed media serving)
+├── server.js              ← Express server, Mongoose models, session auth, DB-backed media serving
 ├── package.json           ← Node dependencies and startup scripts
-├── package-lock.json      
+├── package-lock.json
 ├── .gitignore             ← Excludes node_modules and local .env configurations from Git
-├── .env                   ← Local environment variables (DB URLs, admin email/password, session secrets)
-└── public/                ← Static server folder
-    ├── index.html         ← The Frontend (Unified SPA: public portfolio, admin login, and CRUD panel)
-    ├── groot_logo.png     
-    └── profile.jpeg       
+├── .env                   ← Local environment variables (NOT committed to Git)
+└── public/
+    ├── index.html         ← Unified SPA frontend
+    ├── groot_logo.png
+    └── profile.jpeg
 ```
 
 ---
 
-## 🚀 Setup & Run
+# 🚀 Setup & Run
 
-### 1. Requirements
-Ensure you have **Node.js** (v18+) and a **MongoDB** database instance (either running locally or a free cluster on MongoDB Atlas).
+## 1. Requirements
 
-### 2. Install Dependencies
-Navigate to the root directory and run:
+Ensure you have:
+
+* Node.js v18+
+* MongoDB Atlas account (or local MongoDB instance)
+
+---
+
+## 2. Install Dependencies
+
 ```bash
 npm install
 ```
 
-### 3. Local Environment Variables
-Create a file named `.env` in the root directory (this is already ignored by Git) and add the following template:
-```env
-# MongoDB Connection String (Replace <db_username> and <db_password> with your details)
-MONGODB_URI=mongodb+srv://<db_username>:<db_password>@cluster0.lkoxldo.mongodb.net/portfolio?retryWrites=true&w=majority
+---
 
-# App Configurations
+## 3. Create Environment Variables
+
+Create a file named `.env` in the project root:
+
+```env
+# MongoDB Connection String
+MONGODB_URI=mongodb+srv://<db_username>:<db_password>@cluster.mongodb.net/portfolio?retryWrites=true&w=majority
+
+# Application Configuration
 PORT=3000
-SESSION_SECRET=groot-is-groot-secret-key-2025
-ADMIN_EMAIL=Shivamwork321@gmail.com
+
+# Authentication
+ADMIN_EMAIL=<your_admin_email>
 ADMIN_PASSWORD=<your_admin_password>
+
+# Session Security
+SESSION_SECRET=<your_secure_random_session_secret>
+
+# Environment
+NODE_ENV=development
+
+# Database Seeding
+ENABLE_SEEDING=true
 ```
 
-### 4. Running the Application
-- **Production Mode**:
-  ```bash
-  npm start
-  ```
-- **Development Mode** (with hot-reloading via nodemon):
-  ```bash
-  npm run dev
-  ```
-
-### 5. Ports & Access
-Once started, the application is accessible at:
-- **Public Portfolio** → `http://localhost:3000`
-- **Admin Panel** → `http://localhost:3000/admin` (redirects to `/login` if not authenticated)
+> ⚠️ Never commit the `.env` file to GitHub.
 
 ---
 
-## 🗄️ Database & Schema
+## 4. Run the Application
 
-The application uses **MongoDB** as its primary store. On startup, the server automatically connects, establishes the schemas, and seeds default portfolio sections and administrator configurations if the database is empty.
+### Production Mode
 
-### Collections list:
+```bash
+npm start
+```
 
-1. **`Admin`**: Stores credentials for backend authentication.
-2. **`Project`**: Primary portfolio projects with gradient configurations, tags, emojis, and detail fields.
-3. **`Certificate`**: Course certifications, issuer info, and verification URLs.
-4. **`Activity`**: Hackathons, coding contests, and extracurricular activities.
-5. **`UpcomingProject`**: Pipeline tracking with status tags (`planning`, `in-progress`, `coming-soon`).
-6. **`Partner`**: Project collaborators, roles, and profile URLs.
-7. **`Message`**: Visitor queries sent via the contact form, including their IP address for security.
-8. **`Setting`**: Key-value metadata storage (e.g. stores the `resume_url` path dynamically).
-9. **`Skill`**: Custom technology tags shown in the Skills section.
-10. **`Education`**: Timelines, institutions, date ranges, and academic tags.
-11. **`Blog`**: Articles dynamically fetched and grouped by publication platform.
-12. **`Social`**: Links to social accounts mapped to brand icons on the client interface.
-13. **`Media`**: Dynamic database-backed files storing uploaded badges, project covers, and resumes as binary data (`Buffer`).
+### Development Mode
+
+```bash
+npm run dev
+```
 
 ---
 
-## 💾 Zero-Disk File Uploads
+## 5. Access the Application
 
-All uploaded files (such as resume PDFs and project/badge images) are stored directly inside the **MongoDB `Media` collection** as binary buffers instead of being saved on the local disk filesystem.
-- When an administrator uploads a file via the Admin Dashboard, the server saves the file binary directly in MongoDB and generates a route path like `/uploads/:filename`.
-- When visitors load your site, the Express server retrieves the file from MongoDB and streams it directly to the browser with the correct MIME type.
-- **This design allows the entire application to be 100% database-backed, running perfectly on Render's free tier with zero data loss or need for expensive persistent volumes.**
+Public Portfolio:
 
----
+```text
+http://localhost:3000
+```
 
-## 🌐 Public REST API
+Admin Panel:
 
-The frontend interacts with the backend using the following public JSON endpoints:
-
-| Endpoint | Method | Response Description |
-|---|---|---|
-| `/api/projects` | `GET` | Array of all projects (sorted by pinned state, then date). |
-| `/api/projects/:id` | `GET` | Full single project metadata (for modal display). |
-| `/api/skills` | `GET` | Array of skills (sorted by display order). |
-| `/api/education` | `GET` | Array of background items (sorted by display order). |
-| `/api/upcoming` | `GET` | Future roadmap projects (sorted by display order). |
-| `/api/activities` | `GET` | Extracurricular items, hackathons, and images. |
-| `/api/certificates` | `GET` | Listed certifications and badge image URLs. |
-| `/api/partners` | `GET` | Collaborator profiles, roles, and links. |
-| `/api/blogs` | `GET` | Dynamic technical articles. |
-| `/api/socials` | `GET` | Social platform profiles and links. |
-| `/api/resume` | `GET` | JSON containing the active resume PDF path. |
-| `/api/messages` | `POST` | Submit a direct contact query from the visitor. |
+```text
+http://localhost:3000/admin
+```
 
 ---
 
-## 🛠️ Secure Admin Dashboard API
+# 🗄️ Database Architecture
 
-All dashboard endpoints require the user to have an active session established via the `requireAuth` middleware. Session data is stored securely in MongoDB using `connect-mongo`.
+The application uses MongoDB as the primary database and automatically creates collections on startup.
 
-### Project CRUD
-- `GET /admin/api/projects` — Fetch all projects.
-- `POST /admin/api/projects` — Create project with cover image and optional gallery.
-- `PUT /admin/api/projects/:id` — Update project metadata, changing pinned states and re-uploading images.
-- `DELETE /admin/api/projects/:id` — Delete project and remove related uploads from MongoDB.
+### Collections
 
-### Additional CRUDs (Certificates, Activities, Partners, Upcoming, Skills, Education, Blogs, Socials)
-Each has standard REST handlers matching the fields in the schema:
-- `GET /admin/api/[section]` — List all records.
-- `POST /admin/api/[section]` — Create new record (supports position reordering parameters `top`, `middle`, `bottom`, `custom`).
-- `PUT /admin/api/[section]/:id` — Update existing record.
-- `DELETE /admin/api/[section]/:id` — Remove record and clean up associated media files in database.
-
-### Administrative Controls
-- `GET /admin/api/messages` — Review all messages left by visitors.
-- `PUT /admin/api/messages/:id/read` — Toggle a message's read status.
-- `DELETE /admin/api/messages/:id` — Remove message.
-- `POST /admin/api/resume` — Upload new resume PDF (updates `resume_url` in settings table).
-- `POST /admin/api/change-username` — Securely update credentials.
-- `POST /admin/api/change-password` — Securely update current password using bcrypt hashing verification.
+* Admin
+* Project
+* Certificate
+* Activity
+* UpcomingProject
+* Partner
+* Message
+* Setting
+* Skill
+* Education
+* Blog
+* Social
+* Media
 
 ---
 
-## 🎨 User Interface & Styling Details
+# 💾 Database-Backed File Storage
 
-The interface relies on premium dark modes, harmony colors, and responsive design systems.
+All uploaded files are stored directly inside MongoDB.
 
-- **Theme Palette**: Deep Dark Blue (`#04080f`), Rich Glassmorphism (`rgba(255,255,255,0.055)`), Vibrant Pink (`#f72585`), Crimson (`#e63946`).
-- **Typography**: Display Headers use `Syne`, tech badges and console logs use `Space Mono`.
-- **Canvas Connection Network**: An interactive, dynamic particle net background is rendered using JavaScript `canvas2d` mapping node connections within 110px.
-- **Scroll Reveal**: Uses standard `IntersectionObserver` configurations in `public/script.js` to animate grid items as they enter the screen viewport.
-- **Mouse Tilt Micro-animations**: Moving the cursor over the showcase cards calculates relative cursor coordinates to dynamically tilt cards (`rotateX` / `rotateY`) and raise elevation.
-- **Scrollability Support**: The admin panel sidebar and forms automatically adjust to use custom scrollbars on lower vertical heights to prevent navigation cutting.
+Supported uploads:
 
----
+* Resume PDFs
+* Project Images
+* Certificate Images
+* Activity Images
+* Partner Images
 
-## ☁️ Deployment Guide (Render + MongoDB Atlas)
+Benefits:
 
-This application runs flawlessly on **Render's Free Tier** because all storage requirements (database records + media uploads) are handled remotely by **MongoDB Atlas**.
+* No dependency on Render's filesystem
+* No data loss after redeployments
+* No persistent disk required
+* Compatible with Render Free Tier
 
-### Step 1: Create a Free MongoDB Atlas Database
-1. Sign up for free at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
-2. Deploy a new cluster on the **M0 (Free)** tier.
-3. Add a Database User (save the username and password securely).
-4. Under **Network Access**, add `0.0.0.0/0` (allow connections from anywhere) so Render can connect to it.
-5. In **Database** -> click **Connect** -> select **Drivers** (Node.js). Copy the connection string.
+Uploaded files are served through:
 
-### Step 2: Create Web Service on Render
-1. Go to [Render](https://render.com) and log in.
-2. Click **New +** -> **Web Service**.
-3. Connect your repository `shivamishra12/Portfolio` and click **Connect**.
-4. Configure basic settings:
-   - **Name**: `shivam-portfolio`
-   - **Region**: Select your preferred region.
-   - **Runtime**: `Node`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Instance Type**: Select **Free**.
-
-### Step 3: Configure Environment Variables
-In the **Environment** tab, add the following environment variables:
-- `MONGODB_URI` = `mongodb+srv://<db_username>:<db_password>@cluster.mongodb.net/portfolio?retryWrites=true&w=majority` *(your MongoDB Atlas connection string)*
-- `ADMIN_EMAIL` = `Shivamwork321@gmail.com` *(login email for dashboard)*
-- `ADMIN_PASSWORD` = `<your_admin_password>` *(login password for dashboard)*
-- `SESSION_SECRET` = `choose-a-long-random-secure-secret-key` *(session cookie signature key)*
-- `NODE_ENV` = `production` *(enforces secure cookie handling)*
-- `ENABLE_SEEDING` = `false` *(prevents sample database seeding in production)*
-
-### Step 4: Deploy & Verify
-1. Click **Create Web Service**.
-2. Render will build and deploy your app.
-3. Access your site, go to `/login`, and upload your resume/images. Everything will persist forever in MongoDB Atlas!
+```text
+/uploads/:filename
+```
 
 ---
 
-Built with 💙 by **Shivam Kumar**
+# 🌐 Public API
+
+| Endpoint            | Method | Description            |
+| ------------------- | ------ | ---------------------- |
+| `/api/projects`     | GET    | List all projects      |
+| `/api/projects/:id` | GET    | Get single project     |
+| `/api/skills`       | GET    | List skills            |
+| `/api/education`    | GET    | List education items   |
+| `/api/upcoming`     | GET    | List upcoming projects |
+| `/api/activities`   | GET    | List activities        |
+| `/api/certificates` | GET    | List certificates      |
+| `/api/partners`     | GET    | List partners          |
+| `/api/blogs`        | GET    | List blogs             |
+| `/api/socials`      | GET    | List social links      |
+| `/api/resume`       | GET    | Get current resume     |
+| `/api/messages`     | POST   | Submit contact form    |
+
+---
+
+# 🔐 Admin Dashboard
+
+All admin routes require authentication and are protected by session-based authorization.
+
+### Features
+
+* Project Management
+* Certificate Management
+* Activity Management
+* Partner Management
+* Blog Management
+* Skills Management
+* Education Management
+* Resume Upload
+* Contact Message Review
+* Change Username
+* Change Password
+
+Sessions are securely stored in MongoDB using `connect-mongo`.
+
+---
+
+# 🛡️ Security Features
+
+### Environment Validation
+
+The server refuses to start if any required environment variable is missing:
+
+* MONGODB_URI
+* SESSION_SECRET
+* ADMIN_EMAIL
+* ADMIN_PASSWORD
+
+### Session Security
+
+* HTTP-only cookies
+* Secure cookies in production
+* SameSite protection
+* MongoDB-backed sessions
+
+### Upload Security
+
+* Maximum upload size: 5MB
+* Images and PDFs only
+* Database-backed storage
+* Automatic media cleanup on deletion
+
+### Password Security
+
+* Passwords hashed using bcrypt
+* No hardcoded credentials
+* Session secrets stored in environment variables
+
+---
+
+# ☁️ Deployment Guide (Render + MongoDB Atlas)
+
+## Step 1: Create MongoDB Atlas Cluster
+
+1. Create a free MongoDB Atlas account.
+2. Deploy an M0 Free Tier cluster.
+3. Create a database user.
+4. Configure Network Access:
+
+```text
+0.0.0.0/0
+```
+
+5. Copy the MongoDB connection string.
+
+---
+
+## Step 2: Deploy on Render
+
+1. Create a new Web Service.
+2. Connect your GitHub repository.
+3. Configure:
+
+```text
+Runtime: Node
+Build Command: npm install
+Start Command: npm start
+Instance Type: Free
+```
+
+---
+
+## Step 3: Configure Render Environment Variables
+
+Add the following variables:
+
+```env
+MONGODB_URI=<your_mongodb_connection_string>
+ADMIN_EMAIL=<your_admin_email>
+ADMIN_PASSWORD=<your_admin_password>
+SESSION_SECRET=<your_secure_random_session_secret>
+NODE_ENV=production
+ENABLE_SEEDING=false
+```
+
+### First Deployment
+
+If the database is empty:
+
+```env
+ENABLE_SEEDING=true
+```
+
+Deploy once.
+
+After the admin account and default data are created:
+
+```env
+ENABLE_SEEDING=false
+```
+
+Redeploy.
+
+---
+
+## Step 4: Verify Deployment
+
+Check:
+
+* Portfolio loads successfully
+* Admin login works
+* CRUD operations work
+* File uploads work
+* Resume download works
+* MongoDB collections are created
+
+---
+
+# 📌 Important Security Notes
+
+* Never commit `.env` to GitHub.
+* Never publish database credentials.
+* Never publish admin credentials.
+* Never publish session secrets.
+* Rotate credentials immediately if they are accidentally exposed.
+* Keep all secrets inside Render Environment Variables or local `.env` files only.
+
+---
+
+Built with 💙 by **Shivam Mishra**
