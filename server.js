@@ -2,6 +2,7 @@
    server.js — Shivam Mishra Portfolio Backend
    Express + MongoDB + Session Auth
    ══════════════════════════════════════════════ */
+require('dotenv').config();
 
 const express = require('express');
 const session = require('express-session');
