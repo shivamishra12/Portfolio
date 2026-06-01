@@ -331,10 +331,14 @@ if (existingProjects.length === 0 || hasLegacy) {
   console.log('✅  Sample projects seeded (5 best and complete GitHub projects).');
 }
 
+/* ─── UPLOADS ROUTING ──────────────────────── */
+const UPLOADS_DIR = process.env.UPLOADS_PATH || path.join(__dirname, 'public', 'uploads');
+
 /* ─── MIDDLEWARE ──────────────────────────── */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'groot-is-groot-secret-key-2025',
   resave: false,
@@ -345,9 +349,8 @@ app.use(session({
 /* ─── MULTER (image uploads) ─────────────── */
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join(__dirname, 'public', 'uploads');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
+    if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
     const unique = Date.now() + '-' + Math.round(Math.random() * 1e6);
@@ -646,7 +649,8 @@ app.delete('/admin/api/projects/:id', requireAuth, (req, res) => {
 
     // Delete uploaded image file if exists
     if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, 'public', existing.image_url);
+      const filename = existing.image_url.replace('/uploads/', '');
+      const filePath = path.join(UPLOADS_DIR, filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
 
@@ -705,7 +709,8 @@ app.delete('/admin/api/certificates/:id', requireAuth, (req, res) => {
     const existing = db.prepare('SELECT * FROM certificates WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
     if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, 'public', existing.image_url);
+      const filename = existing.image_url.replace('/uploads/', '');
+      const filePath = path.join(UPLOADS_DIR, filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
     db.prepare('DELETE FROM certificates WHERE id = ?').run(req.params.id);
@@ -779,7 +784,8 @@ app.delete('/admin/api/activities/:id', requireAuth, (req, res) => {
     if (existing.image_urls) {
       existing.image_urls.split(',').filter(Boolean).forEach(url => {
         if (url.startsWith('/uploads/')) {
-          const filePath = path.join(__dirname, 'public', url);
+          const filename = url.replace('/uploads/', '');
+          const filePath = path.join(UPLOADS_DIR, filename);
           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
       });
@@ -889,7 +895,8 @@ app.delete('/admin/api/partners/:id', requireAuth, (req, res) => {
     const existing = db.prepare('SELECT * FROM partners WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
     if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, 'public', existing.image_url);
+      const filename = existing.image_url.replace('/uploads/', '');
+      const filePath = path.join(UPLOADS_DIR, filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
     db.prepare('DELETE FROM partners WHERE id = ?').run(req.params.id);
