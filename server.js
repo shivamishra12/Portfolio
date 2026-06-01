@@ -230,7 +230,7 @@ async function deleteFile(url) {
 /* ─── DATABASE SEEDING ───────────────────── */
 async function seedDatabase() {
   try {
-    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminEmail = process.env.ADMIN_EMAIL.toLowerCase();
     const adminPassword = process.env.ADMIN_PASSWORD;
 
     // Clear and reset legacy simple admin username if it exists
@@ -719,7 +719,7 @@ app.get('/api/auth-check', (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const admin = await Admin.findOne({ username });
+    const admin = await Admin.findOne({ username: username.toLowerCase() });
     if (!admin || !bcrypt.compareSync(password, admin.password)) {
       return res.json({ success: false, message: 'Invalid username or password.' });
     }
