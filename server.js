@@ -1,354 +1,462 @@
 /* ══════════════════════════════════════════════
    server.js — Shivam Mishra Portfolio Backend
-   Express + SQLite + Session Auth
-══════════════════════════════════════════════ */
+   Express + MongoDB + Session Auth
+   ══════════════════════════════════════════════ */
 
 const express = require('express');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const Database = require('better-sqlite3');
+const mongoose = require('mongoose');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* ─── DATABASE SETUP ─────────────────────── */
-const dbPath = process.env.DATABASE_PATH || './portfolio.db';
-const dbDir = path.dirname(path.resolve(dbPath));
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-const db = new Database(dbPath);
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio';
 
-// Create tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS admin (
-    id       INTEGER PRIMARY KEY,
-    username TEXT    UNIQUE NOT NULL,
-    password TEXT    NOT NULL
-  );
+mongoose.connect(MONGODB_URI)
+  .then(() => {
+    console.log('✅  Connected to MongoDB successfully');
+    seedDatabase();
+  })
+  .catch(err => {
+    console.error('❌  MongoDB connection error:', err);
+  });
 
-  CREATE TABLE IF NOT EXISTS projects (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    title       TEXT    NOT NULL,
-    description TEXT    NOT NULL,
-    full_desc   TEXT,
-    emoji       TEXT    DEFAULT '🚀',
-    image_url   TEXT    DEFAULT '',
-    tags        TEXT    DEFAULT '',
-    github_url  TEXT    DEFAULT '',
-    linkedin_url TEXT   DEFAULT '',
-    team        TEXT    DEFAULT '',
-    gradient    TEXT    DEFAULT 'linear-gradient(135deg,#1a1a2e,#16213e)',
-    is_pinned   INTEGER DEFAULT 0,
-    gallery_urls TEXT   DEFAULT '',
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+const schemaOptions = {
+  toJSON: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : ret.id;
+      delete ret._id;
+      delete ret.__v;
+      return ret;
+    }
+  },
+  toObject: {
+    virtuals: true,
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : ret.id;
+      delete ret._id;
+      delete ret.__v;
+      return ret;
+    }
+  }
+};
 
-  CREATE TABLE IF NOT EXISTS certificates (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    title          TEXT    NOT NULL,
-    issuer         TEXT    DEFAULT '',
-    date           TEXT    DEFAULT '',
-    image_url      TEXT    DEFAULT '',
-    credential_url TEXT    DEFAULT '',
-    sort_order     INTEGER DEFAULT 0,
-    created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// 1. Admin Schema
+const adminSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true }
+}, schemaOptions);
+const Admin = mongoose.model('Admin', adminSchema);
 
-  CREATE TABLE IF NOT EXISTS activities (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    title       TEXT    NOT NULL,
-    description TEXT    DEFAULT '',
-    image_urls  TEXT    DEFAULT '',
-    certificates TEXT   DEFAULT '',
-    date        TEXT    DEFAULT '',
-    category    TEXT    DEFAULT '',
-    sort_order  INTEGER DEFAULT 0,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// 2. Project Schema
+const projectSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  full_desc: { type: String, default: '' },
+  emoji: { type: String, default: '🚀' },
+  image_url: { type: String, default: '' },
+  tags: { type: String, default: '' },
+  github_url: { type: String, default: '' },
+  linkedin_url: { type: String, default: '' },
+  team: { type: String, default: '' },
+  gradient: { type: String, default: 'linear-gradient(135deg,#1a1a2e,#16213e)' },
+  is_pinned: { type: Number, default: 0 },
+  gallery_urls: { type: String, default: '' },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Project = mongoose.model('Project', projectSchema);
 
-  CREATE TABLE IF NOT EXISTS upcoming_projects (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    title         TEXT    NOT NULL,
-    description   TEXT    DEFAULT '',
-    expected_date TEXT    DEFAULT '',
-    status        TEXT    DEFAULT 'planning',
-    tech_stack    TEXT    DEFAULT '',
-    sort_order    INTEGER DEFAULT 0,
-    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// 3. Certificate Schema
+const certificateSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  issuer: { type: String, default: '' },
+  date: { type: String, default: '' },
+  image_url: { type: String, default: '' },
+  credential_url: { type: String, default: '' },
+  sort_order: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Certificate = mongoose.model('Certificate', certificateSchema);
 
-  CREATE TABLE IF NOT EXISTS partners (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT    NOT NULL,
-    role        TEXT    NOT NULL,
-    image_url   TEXT    DEFAULT '',
-    link        TEXT    DEFAULT '',
-    bio         TEXT    DEFAULT '',
-    sort_order  INTEGER DEFAULT 0,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// 4. Activity Schema
+const activitySchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  image_urls: { type: String, default: '' },
+  certificates: { type: String, default: '' },
+  date: { type: String, default: '' },
+  category: { type: String, default: '' },
+  sort_order: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Activity = mongoose.model('Activity', activitySchema);
 
-  CREATE TABLE IF NOT EXISTS messages (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT    NOT NULL,
-    email       TEXT    NOT NULL,
-    message     TEXT    NOT NULL,
-    ip          TEXT    DEFAULT '',
-    is_read     INTEGER DEFAULT 0,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// 5. Upcoming Project Schema
+const upcomingProjectSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  expected_date: { type: String, default: '' },
+  status: { type: String, default: 'planning' },
+  tech_stack: { type: String, default: '' },
+  sort_order: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const UpcomingProject = mongoose.model('UpcomingProject', upcomingProjectSchema);
 
-  CREATE TABLE IF NOT EXISTS settings (
-    key         TEXT    PRIMARY KEY,
-    value       TEXT    NOT NULL
-  );
+// 6. Partner Schema
+const partnerSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  role: { type: String, required: true },
+  image_url: { type: String, default: '' },
+  link: { type: String, default: '' },
+  bio: { type: String, default: '' },
+  sort_order: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Partner = mongoose.model('Partner', partnerSchema);
 
-  CREATE TABLE IF NOT EXISTS skills (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT    NOT NULL,
-    sort_order  INTEGER DEFAULT 0,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// 7. Message Schema
+const messageSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  message: { type: String, required: true },
+  ip: { type: String, default: '' },
+  is_read: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Message = mongoose.model('Message', messageSchema);
 
-  CREATE TABLE IF NOT EXISTS education (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    icon        TEXT    DEFAULT '🎓',
-    title       TEXT    NOT NULL,
-    subtitle    TEXT    DEFAULT '',
-    institution TEXT    DEFAULT '',
-    date_range  TEXT    DEFAULT '',
-    tags        TEXT    DEFAULT '',
-    sort_order  INTEGER DEFAULT 0,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// 8. Setting Schema
+const settingSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true },
+  value: { type: String, default: '' }
+}, schemaOptions);
+const Setting = mongoose.model('Setting', settingSchema);
 
-  CREATE TABLE IF NOT EXISTS blogs (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    title       TEXT    NOT NULL,
-    description TEXT    DEFAULT '',
-    link        TEXT    NOT NULL,
-    platform    TEXT    DEFAULT 'Medium',
-    sort_order  INTEGER DEFAULT 0,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// 9. Skill Schema
+const skillSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  sort_order: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Skill = mongoose.model('Skill', skillSchema);
 
-  CREATE TABLE IF NOT EXISTS socials (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT    NOT NULL,
-    url         TEXT    NOT NULL,
-    sort_order  INTEGER DEFAULT 0,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
+// 10. Education Schema
+const educationSchema = new mongoose.Schema({
+  icon: { type: String, default: '🎓' },
+  title: { type: String, required: true },
+  subtitle: { type: String, default: '' },
+  institution: { type: String, default: '' },
+  date_range: { type: String, default: '' },
+  tags: { type: String, default: '' },
+  sort_order: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Education = mongoose.model('Education', educationSchema);
 
-// Seed admin if not exists
-const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
+// 11. Blog Schema
+const blogSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  link: { type: String, required: true },
+  platform: { type: String, default: 'Medium' },
+  sort_order: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Blog = mongoose.model('Blog', blogSchema);
 
-db.prepare('DELETE FROM admin WHERE username = ?').run('admin');
-const adminExists = db.prepare('SELECT id FROM admin WHERE username = ?').get(adminEmail);
-if (!adminExists) {
-  const hash = bcrypt.hashSync(adminPassword, 10);
-  db.prepare('INSERT INTO admin (username, password) VALUES (?, ?)').run(adminEmail, hash);
-  console.log(`✅  Default admin created — username: ${adminEmail}`);
-}
+// 12. Social Schema
+const socialSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  url: { type: String, required: true },
+  sort_order: { type: Number, default: 0 },
+  created_at: { type: Date, default: Date.now }
+}, schemaOptions);
+const Social = mongoose.model('Social', socialSchema);
 
-// Seed resume_url setting if not exists
-const resumeUrlExists = db.prepare('SELECT value FROM settings WHERE key = ?').get('resume_url');
-if (!resumeUrlExists) {
-  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('resume_url', '');
-}
+// 13. Media Schema (for database-backed uploads)
+const mediaSchema = new mongoose.Schema({
+  filename: { type: String, required: true, unique: true },
+  contentType: { type: String, required: true },
+  data: { type: Buffer, required: true }
+});
+const Media = mongoose.model('Media', mediaSchema);
 
-// Seed other sections if empty
+/* ─── UPLOADS HELPERS (DATABASE BACKED) ───── */
 
-const activityCount = db.prepare('SELECT COUNT(*) as c FROM activities').get().c;
-if (activityCount === 0) {
-  const insert = db.prepare('INSERT INTO activities (title, description, image_urls, certificates, date, category, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
-  insert.run('Smart India Hackathon 2024', 'Built a CNN model for plant crop disease detection, helping local farmers identify pathogenic anomalies with 92% precision.', '', 'Finalist Certificate', '2024-11-22', 'Hackathon', 1);
-  insert.run('KIET Internal Codeathon', 'Won 1st prize for building a decentralized, real-time secure messaging system using WebSockets.', '', 'First Place Medal', '2025-02-14', 'Coding Contest', 2);
-  console.log('✅ Sample activities seeded.');
-}
-
-const upcomingCount = db.prepare('SELECT COUNT(*) as c FROM upcoming_projects').get().c;
-if (upcomingCount === 0) {
-  const insert = db.prepare('INSERT INTO upcoming_projects (title, description, expected_date, status, tech_stack, sort_order) VALUES (?, ?, ?, ?, ?, ?)');
-  insert.run('AI Medical Assistant', 'A multimodal AI diagnostic assistant combining vision-language models to analyze X-Ray scans and generate contextual notes.', '2026-08-30', 'in-progress', 'FastAPI,PyTorch,React', 1);
-  insert.run('Decentralized AI Model Marketplace', 'A blockchain-based marketplace enabling trustless, secure verification and leasing of custom machine learning models.', '2026-11-15', 'planning', 'Solidity,Web3.js,Python', 2);
-  console.log('✅ Sample upcoming projects seeded.');
-}
-
-// Seed skills if empty
-const skillCount = db.prepare('SELECT COUNT(*) as c FROM skills').get().c;
-if (skillCount === 0) {
-  const insert = db.prepare('INSERT INTO skills (name, sort_order) VALUES (?, ?)');
-  const defaultSkills = ['Python', 'FastAPI', 'Docker', 'AWS', 'React', 'PostgreSQL', 'Redis', 'Git'];
-  defaultSkills.forEach((name, i) => insert.run(name, i + 1));
-  console.log('✅ Default skills seeded.');
-}
-
-// Seed education if empty
-const eduCount = db.prepare('SELECT COUNT(*) as c FROM education').get().c;
-if (eduCount === 0) {
-  const insert = db.prepare('INSERT INTO education (icon, title, subtitle, institution, date_range, tags, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
-  insert.run('🎓', 'B.Tech — Computer Science', 'Specialization: AI & Data Science', 'KIET Group Of Institutions', '2024 – 2028', '', 1);
-  insert.run('🤖', 'Machine Learning', 'Deep Learning · NLP · Computer Vision', '', '', 'PyTorch, TensorFlow, Scikit-learn', 2);
-  insert.run('📊', 'Data Science & Engineering', 'Analytics · Visualization · Pipelines', '', '', 'SQL, Spark, Airflow', 3);
-  console.log('✅ Sample education seeded.');
-}
-
-// Seed blogs if empty
-const blogCount = db.prepare('SELECT COUNT(*) as c FROM blogs').get().c;
-if (blogCount === 0) {
-  const insert = db.prepare('INSERT INTO blogs (title, description, link, platform, sort_order) VALUES (?, ?, ?, ?, ?)');
-  insert.run(
-    'Building PerformAI: High-performance AI benchmarking',
-    'A detailed guide on evaluating and visualizing AI model metrics dynamically in the browser.',
-    'https://github.com/shivamishra12/PerformAI',
-    'Dev.to',
-    1
-  );
-  insert.run(
-    'My Journey in Smart India Hackathon 2024',
-    'How we built a CNN-based crop disease classifier and reached the national finals.',
-    'https://github.com/shivamishra12',
-    'Medium',
-    2
-  );
-  console.log('✅ Sample blogs seeded.');
+async function saveFile(file) {
+  if (!file) return '';
+  const filename = Date.now() + '-' + Math.round(Math.random() * 1e6) + path.extname(file.originalname);
+  const media = new Media({
+    filename,
+    contentType: file.mimetype,
+    data: file.buffer
+  });
+  await media.save();
+  return `/uploads/${filename}`;
 }
 
-// Seed socials if empty
-const socialCount = db.prepare('SELECT COUNT(*) as c FROM socials').get().c;
-if (socialCount === 0) {
-  const insert = db.prepare('INSERT INTO socials (name, url, sort_order) VALUES (?, ?, ?)');
-  insert.run('GitHub', 'https://github.com/shivamishra12', 1);
-  insert.run('LinkedIn', 'https://www.linkedin.com/in/shivam-kumar-aa1345309/', 2);
-  insert.run('Instagram', 'https://www.instagram.com/svu_u_?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==', 3);
-  insert.run('Email', 'mailto:shivamwork321@gmail.com', 4);
-  insert.run('Phone', 'tel:+917903937126', 5);
-  console.log('✅ Default socials seeded.');
+async function deleteFile(url) {
+  if (!url || !url.startsWith('/uploads/')) return;
+  const filename = url.replace('/uploads/', '');
+  await Media.deleteOne({ filename });
 }
 
-// Seed sample projects if they match legacy projects or if projects table is empty
-const existingProjects = db.prepare('SELECT title FROM projects').all().map(p => p.title);
-const legacyTitles = [
-  'Deepfake Detection System',
-  'MicroCareerAI',
-  'AI Chatbot',
-  'Movie Recommendation System',
-  'Sentiment Analysis System',
-  'Data Visualization Dashboard',
-  'AI Developer Portfolio',
-  'EcoTrack Waste Management',
-  'JarvisAI Voice Assistant'
-];
-// Check if the database contains any of the old projects we want to clean up or if length is incorrect
-const hasLegacy = existingProjects.some(t => legacyTitles.includes(t)) || existingProjects.length !== 5;
-if (existingProjects.length === 0 || hasLegacy) {
-  db.prepare('DELETE FROM projects').run();
-  const insert = db.prepare(`
-    INSERT INTO projects (title, description, full_desc, emoji, tags, github_url, linkedin_url, team, gradient, is_pinned)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const samples = [
-    [
-      'PerformAI',
-      'High-performance AI model evaluation and visualization interface.',
-      'A modern, high-performance web interface designed to benchmark, evaluate, and visualize performance metrics of various AI and machine learning models in real time.',
-      '⚡',
-      'JavaScript, AI Benchmarking, Web',
-      'https://github.com/shivamishra12/PerformAI',
-      'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
-      'Shivam Kumar',
-      'linear-gradient(135deg,#0f0c29,#302b63)',
-      1
-    ],
-    [
-      'MERN Lost & Found System',
-      'Full-stack web application to report and track lost and found items.',
-      'A complete full-stack web application built using the MERN stack (MongoDB, Express, React, Node.js) with production database integration to securely track, match, and recover lost assets.',
-      '🔍',
-      'React, Node.js, Express, MongoDB',
-      'https://github.com/shivamishra12/lost-found-system',
-      'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
-      'Shivam Kumar',
-      'linear-gradient(135deg,#134e5e,#71b280)',
-      1
-    ],
-    [
-      'Stock Trading Web App',
-      'Interactive mock stock trading platform with real-time tracking.',
-      'A mock stock trading application designed to simulate financial market exchanges, supporting portfolio evaluation, watchlists, and transaction simulations.',
-      '📈',
-      'JavaScript, Finance, Simulated Trading',
-      'https://github.com/shivamishra12/Stock-Trading-Web-App',
-      'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
-      'Shivam Kumar',
-      'linear-gradient(135deg,#0a3d62,#1e3799)',
-      1
-    ],
-    [
-      'Deep Learnings Modules',
-      'Lab work and assignments implementing foundational deep learning models.',
-      'This repository contains hands-on implementations of core deep learning algorithms, including CNNs, RNNs, and neural network tuning techniques, mapped to academic and research tasks.',
-      '🧠',
-      'Jupyter Notebook, Deep Learning, CNN, PyTorch',
-      'https://github.com/shivamishra12/DEEP-LEARNINGS-MODULES',
-      'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
-      'Shivam Kumar',
-      'linear-gradient(135deg,#1a1a2e,#16213e)',
-      1
-    ],
-    [
-      'Disease Genetic Predictor',
-      'Predictive model combining genetic and clinical attributes for outcomes.',
-      'A machine learning pipeline evaluating mixed genetic markers and clinical features to estimate prognostic disease outcomes and patient health risks.',
-      '🧬',
-      'Jupyter Notebook, Bioinformatics, ML',
-      'https://github.com/shivamishra12/Predict-Disease-Outcome-Based-on-Genetic-and-Clinical-Data',
-      'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
-      'Shivam Kumar',
-      'linear-gradient(135deg,#16a085,#2ecc71)',
-      1
-    ]
-  ];
-  samples.forEach(s => insert.run(...s));
-  console.log('✅  Sample projects seeded (5 best and complete GitHub projects).');
-}
+/* ─── DATABASE SEEDING ───────────────────── */
+async function seedDatabase() {
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
 
-/* ─── UPLOADS ROUTING ──────────────────────── */
-const UPLOADS_DIR = process.env.UPLOADS_PATH || path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    // Clear and reset legacy simple admin username if it exists
+    await Admin.deleteOne({ username: 'admin' });
+
+    const adminExists = await Admin.findOne({ username: adminEmail });
+    if (!adminExists) {
+      const hash = bcrypt.hashSync(adminPassword, 10);
+      await Admin.create({ username: adminEmail, password: hash });
+      console.log(`✅ Default admin created — username: ${adminEmail}`);
+    }
+
+    // Seed resume_url setting
+    const resumeUrlExists = await Setting.findOne({ key: 'resume_url' });
+    if (!resumeUrlExists) {
+      await Setting.create({ key: 'resume_url', value: '' });
+    }
+
+    // Seed activities
+    const activityCount = await Activity.countDocuments();
+    if (activityCount === 0) {
+      await Activity.create([
+        {
+          title: 'Smart India Hackathon 2024',
+          description: 'Built a CNN model for plant crop disease detection, helping local farmers identify pathogenic anomalies with 92% precision.',
+          image_urls: '',
+          certificates: 'Finalist Certificate',
+          date: '2024-11-22',
+          category: 'Hackathon',
+          sort_order: 1
+        },
+        {
+          title: 'KIET Internal Codeathon',
+          description: 'Won 1st prize for building a decentralized, real-time secure messaging system using WebSockets.',
+          image_urls: '',
+          certificates: 'First Place Medal',
+          date: '2025-02-14',
+          category: 'Coding Contest',
+          sort_order: 2
+        }
+      ]);
+      console.log('✅ Sample activities seeded.');
+    }
+
+    // Seed upcoming projects
+    const upcomingCount = await UpcomingProject.countDocuments();
+    if (upcomingCount === 0) {
+      await UpcomingProject.create([
+        {
+          title: 'AI Medical Assistant',
+          description: 'A multimodal AI diagnostic assistant combining vision-language models to analyze X-Ray scans and generate contextual notes.',
+          expected_date: '2026-08-30',
+          status: 'in-progress',
+          tech_stack: 'FastAPI,PyTorch,React',
+          sort_order: 1
+        },
+        {
+          title: 'Decentralized AI Model Marketplace',
+          description: 'A blockchain-based marketplace enabling trustless, secure verification and leasing of custom machine learning models.',
+          expected_date: '2026-11-15',
+          status: 'planning',
+          tech_stack: 'Solidity,Web3.js,Python',
+          sort_order: 2
+        }
+      ]);
+      console.log('✅ Sample upcoming projects seeded.');
+    }
+
+    // Seed skills
+    const skillCount = await Skill.countDocuments();
+    if (skillCount === 0) {
+      const defaultSkills = ['Python', 'FastAPI', 'Docker', 'AWS', 'React', 'PostgreSQL', 'Redis', 'Git'];
+      const skillDocs = defaultSkills.map((name, i) => ({ name, sort_order: i + 1 }));
+      await Skill.create(skillDocs);
+      console.log('✅ Default skills seeded.');
+    }
+
+    // Seed education
+    const eduCount = await Education.countDocuments();
+    if (eduCount === 0) {
+      await Education.create([
+        {
+          icon: '🎓',
+          title: 'B.Tech — Computer Science',
+          subtitle: 'Specialization: AI & Data Science',
+          institution: 'KIET Group Of Institutions',
+          date_range: '2024 – 2028',
+          tags: '',
+          sort_order: 1
+        },
+        {
+          icon: '🤖',
+          title: 'Machine Learning',
+          subtitle: 'Deep Learning · NLP · Computer Vision',
+          institution: '',
+          date_range: '',
+          tags: 'PyTorch, TensorFlow, Scikit-learn',
+          sort_order: 2
+        },
+        {
+          icon: '📊',
+          title: 'Data Science & Engineering',
+          subtitle: 'Analytics · Visualization · Pipelines',
+          institution: '',
+          date_range: '',
+          tags: 'SQL, Spark, Airflow',
+          sort_order: 3
+        }
+      ]);
+      console.log('✅ Sample education seeded.');
+    }
+
+    // Seed blogs
+    const blogCount = await Blog.countDocuments();
+    if (blogCount === 0) {
+      await Blog.create([
+        {
+          title: 'Building PerformAI: High-performance AI benchmarking',
+          description: 'A detailed guide on evaluating and visualizing AI model metrics dynamically in the browser.',
+          link: 'https://github.com/shivamishra12/PerformAI',
+          platform: 'Dev.to',
+          sort_order: 1
+        },
+        {
+          title: 'My Journey in Smart India Hackathon 2024',
+          description: 'How we built a CNN-based crop disease classifier and reached the national finals.',
+          link: 'https://github.com/shivamishra12',
+          platform: 'Medium',
+          sort_order: 2
+        }
+      ]);
+      console.log('✅ Sample blogs seeded.');
+    }
+
+    // Seed socials
+    const socialCount = await Social.countDocuments();
+    if (socialCount === 0) {
+      await Social.create([
+        { name: 'GitHub', url: 'https://github.com/shivamishra12', sort_order: 1 },
+        { name: 'LinkedIn', url: 'https://www.linkedin.com/in/shivam-kumar-aa1345309/', sort_order: 2 },
+        { name: 'Instagram', url: 'https://www.instagram.com/svu_u_?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==', sort_order: 3 },
+        { name: 'Email', url: 'mailto:shivamwork321@gmail.com', sort_order: 4 },
+        { name: 'Phone', url: 'tel:+917903937126', sort_order: 5 }
+      ]);
+      console.log('✅ Default socials seeded.');
+    }
+
+    // Seed projects
+    const projectCount = await Project.countDocuments();
+    if (projectCount === 0) {
+      await Project.create([
+        {
+          title: 'PerformAI',
+          description: 'High-performance AI model evaluation and visualization interface.',
+          full_desc: 'A modern, high-performance web interface designed to benchmark, evaluate, and visualize performance metrics of various AI and machine learning models in real time.',
+          emoji: '⚡',
+          tags: 'JavaScript, AI Benchmarking, Web',
+          github_url: 'https://github.com/shivamishra12/PerformAI',
+          linkedin_url: 'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
+          team: 'Shivam Kumar',
+          gradient: 'linear-gradient(135deg,#0f0c29,#302b63)',
+          is_pinned: 1,
+          gallery_urls: ''
+        },
+        {
+          title: 'MERN Lost & Found System',
+          description: 'Full-stack web application to report and track lost and found items.',
+          full_desc: 'A complete full-stack web application built using the MERN stack (MongoDB, Express, React, Node.js) with production database integration to securely track, match, and recover lost assets.',
+          emoji: '🔍',
+          tags: 'React, Node.js, Express, MongoDB',
+          github_url: 'https://github.com/shivamishra12/lost-found-system',
+          linkedin_url: 'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
+          team: 'Shivam Kumar',
+          gradient: 'linear-gradient(135deg,#134e5e,#71b280)',
+          is_pinned: 1,
+          gallery_urls: ''
+        },
+        {
+          title: 'Stock Trading Web App',
+          description: 'Interactive mock stock trading platform with real-time tracking.',
+          full_desc: 'A mock stock trading application designed to simulate financial market exchanges, supporting portfolio evaluation, watchlists, and transaction simulations.',
+          emoji: '📈',
+          tags: 'JavaScript, Finance, Simulated Trading',
+          github_url: 'https://github.com/shivamishra12/Stock-Trading-Web-App',
+          linkedin_url: 'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
+          team: 'Shivam Kumar',
+          gradient: 'linear-gradient(135deg,#0a3d62,#1e3799)',
+          is_pinned: 1,
+          gallery_urls: ''
+        },
+        {
+          title: 'Deep Learnings Modules',
+          description: 'Lab work and assignments implementing foundational deep learning models.',
+          full_desc: 'This repository contains hands-on implementations of core deep learning algorithms, including CNNs, RNNs, and neural network tuning techniques, mapped to academic and research tasks.',
+          emoji: '🧠',
+          tags: 'Jupyter Notebook, Deep Learning, CNN, PyTorch',
+          github_url: 'https://github.com/shivamishra12/DEEP-LEARNINGS-MODULES',
+          linkedin_url: 'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
+          team: 'Shivam Kumar',
+          gradient: 'linear-gradient(135deg,#1a1a2e,#16213e)',
+          is_pinned: 1,
+          gallery_urls: ''
+        },
+        {
+          title: 'Disease Genetic Predictor',
+          description: 'Predictive model combining genetic and clinical attributes for outcomes.',
+          full_desc: 'A machine learning pipeline evaluating mixed genetic markers and clinical features to estimate prognostic disease outcomes and patient health risks.',
+          emoji: '🧬',
+          tags: 'Jupyter Notebook, Bioinformatics, ML',
+          github_url: 'https://github.com/shivamishra12/Predict-Disease-Outcome-Based-on-Genetic-and-Clinical-Data',
+          linkedin_url: 'https://www.linkedin.com/in/shivam-kumar-aa1345309/',
+          team: 'Shivam Kumar',
+          gradient: 'linear-gradient(135deg,#16a085,#2ecc71)',
+          is_pinned: 1,
+          gallery_urls: ''
+        }
+      ]);
+      console.log('✅ Sample projects seeded.');
+    }
+  } catch (err) {
+    console.error('❌ Seeding failed:', err);
+  }
 }
 
 /* ─── MIDDLEWARE ──────────────────────────── */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Configure session with MongoStore for database session backing
 app.use(session({
   secret: process.env.SESSION_SECRET || 'groot-is-groot-secret-key-2025',
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: MONGODB_URI,
+    collectionName: 'sessions',
+    ttl: 8 * 60 * 60 // 8 hours
+  }),
   cookie: { maxAge: 1000 * 60 * 60 * 8 } // 8 hours
 }));
 
-/* ─── MULTER (image uploads) ─────────────── */
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-    cb(null, UPLOADS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e6);
-    cb(null, unique + path.extname(file.originalname));
-  }
-});
+/* ─── MULTER (memory upload) ─────────────── */
+const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
@@ -364,14 +472,28 @@ function requireAuth(req, res, next) {
   res.redirect('/login');
 }
 
+/* ─── DYNAMIC UPLOADS SERVING ────────────── */
+app.get('/uploads/:filename', async (req, res) => {
+  try {
+    const file = await Media.findOne({ filename: req.params.filename });
+    if (!file) {
+      return res.status(404).send('File not found');
+    }
+    res.set('Content-Type', file.contentType);
+    res.send(file.data);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 /* ════════════════════════════════════════════
    PUBLIC API — used by portfolio frontend
    ════════════════════════════════════════════ */
 
 // Helper to reorder items based on chosen position
-function reorderItems(table, itemId, position, customPos) {
-  const items = db.prepare(`SELECT id, sort_order FROM ${table} ORDER BY sort_order ASC, id ASC`).all();
-  const targetIndex = items.findIndex(item => item.id === itemId);
+async function reorderItems(Model, itemId, position, customPos) {
+  const items = await Model.find({}).sort({ sort_order: 1, _id: 1 });
+  const targetIndex = items.findIndex(item => item._id.toString() === itemId.toString());
   if (targetIndex === -1) return;
   const targetItem = items.splice(targetIndex, 1)[0];
 
@@ -392,18 +514,16 @@ function reorderItems(table, itemId, position, customPos) {
 
   items.splice(newIndex, 0, targetItem);
 
-  const updateStmt = db.prepare(`UPDATE ${table} SET sort_order = ? WHERE id = ?`);
-  db.transaction((list) => {
-    list.forEach((item, idx) => {
-      updateStmt.run(idx + 1, item.id);
-    });
-  })(items);
+  for (let idx = 0; idx < items.length; idx++) {
+    items[idx].sort_order = idx + 1;
+    await items[idx].save();
+  }
 }
 
 // GET /api/skills — all skills
-app.get('/api/skills', (req, res) => {
+app.get('/api/skills', async (req, res) => {
   try {
-    const skills = db.prepare('SELECT * FROM skills ORDER BY sort_order ASC, name ASC').all();
+    const skills = await Skill.find({}).sort({ sort_order: 1, name: 1 });
     res.json(skills);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -411,13 +531,16 @@ app.get('/api/skills', (req, res) => {
 });
 
 // GET /api/education — all education & background items
-app.get('/api/education', (req, res) => {
+app.get('/api/education', async (req, res) => {
   try {
-    const education = db.prepare('SELECT * FROM education ORDER BY sort_order ASC, title ASC').all();
-    const parsed = education.map(e => ({
-      ...e,
-      tags: e.tags ? e.tags.split(',').map(t => t.trim()).filter(Boolean) : []
-    }));
+    const education = await Education.find({}).sort({ sort_order: 1, title: 1 });
+    const parsed = education.map(e => {
+      const plain = e.toObject();
+      return {
+        ...plain,
+        tags: plain.tags ? plain.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+      };
+    });
     res.json(parsed);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -425,28 +548,39 @@ app.get('/api/education', (req, res) => {
 });
 
 // GET /api/projects — all projects for the public portfolio
-app.get('/api/projects', (req, res) => {
-  const projects = db.prepare('SELECT * FROM projects ORDER BY is_pinned DESC, created_at DESC').all();
-  // Parse tags string → array
-  const parsed = projects.map(p => ({
-    ...p,
-    tags: p.tags ? p.tags.split(',').map(t => t.trim()).filter(Boolean) : []
-  }));
-  res.json(parsed);
+app.get('/api/projects', async (req, res) => {
+  try {
+    const projects = await Project.find({}).sort({ is_pinned: -1, created_at: -1 });
+    const parsed = projects.map(p => {
+      const plain = p.toObject();
+      return {
+        ...plain,
+        tags: plain.tags ? plain.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+      };
+    });
+    res.json(parsed);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/projects/:id — single project detail
-app.get('/api/projects/:id', (req, res) => {
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
-  if (!project) return res.status(404).json({ error: 'Not found' });
-  project.tags = project.tags ? project.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-  res.json(project);
+app.get('/api/projects/:id', async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Not found' });
+    const plain = project.toObject();
+    plain.tags = plain.tags ? plain.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+    res.json(plain);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/certificates
-app.get('/api/certificates', (req, res) => {
+app.get('/api/certificates', async (req, res) => {
   try {
-    const certificates = db.prepare('SELECT * FROM certificates ORDER BY sort_order ASC, date DESC').all();
+    const certificates = await Certificate.find({}).sort({ sort_order: 1, date: -1 });
     res.json(certificates);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -454,14 +588,17 @@ app.get('/api/certificates', (req, res) => {
 });
 
 // GET /api/activities
-app.get('/api/activities', (req, res) => {
+app.get('/api/activities', async (req, res) => {
   try {
-    const activities = db.prepare('SELECT * FROM activities ORDER BY sort_order ASC, date DESC').all();
-    const parsed = activities.map(a => ({
-      ...a,
-      image_urls: a.image_urls ? a.image_urls.split(',').map(u => u.trim()).filter(Boolean) : [],
-      certificates: a.certificates ? a.certificates.split(',').map(c => c.trim()).filter(Boolean) : []
-    }));
+    const activities = await Activity.find({}).sort({ sort_order: 1, date: -1 });
+    const parsed = activities.map(a => {
+      const plain = a.toObject();
+      return {
+        ...plain,
+        image_urls: plain.image_urls ? plain.image_urls.split(',').map(u => u.trim()).filter(Boolean) : [],
+        certificates: plain.certificates ? plain.certificates.split(',').map(c => c.trim()).filter(Boolean) : []
+      };
+    });
     res.json(parsed);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -469,13 +606,16 @@ app.get('/api/activities', (req, res) => {
 });
 
 // GET /api/upcoming
-app.get('/api/upcoming', (req, res) => {
+app.get('/api/upcoming', async (req, res) => {
   try {
-    const upcoming = db.prepare('SELECT * FROM upcoming_projects ORDER BY sort_order ASC, expected_date ASC').all();
-    const parsed = upcoming.map(u => ({
-      ...u,
-      tech_stack: u.tech_stack ? u.tech_stack.split(',').map(t => t.trim()).filter(Boolean) : []
-    }));
+    const upcoming = await UpcomingProject.find({}).sort({ sort_order: 1, expected_date: 1 });
+    const parsed = upcoming.map(u => {
+      const plain = u.toObject();
+      return {
+        ...plain,
+        tech_stack: plain.tech_stack ? plain.tech_stack.split(',').map(t => t.trim()).filter(Boolean) : []
+      };
+    });
     res.json(parsed);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -483,9 +623,9 @@ app.get('/api/upcoming', (req, res) => {
 });
 
 // GET /api/partners
-app.get('/api/partners', (req, res) => {
+app.get('/api/partners', async (req, res) => {
   try {
-    const partners = db.prepare('SELECT * FROM partners ORDER BY sort_order ASC, name ASC').all();
+    const partners = await Partner.find({}).sort({ sort_order: 1, name: 1 });
     res.json(partners);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -493,9 +633,9 @@ app.get('/api/partners', (req, res) => {
 });
 
 // GET /api/resume
-app.get('/api/resume', (req, res) => {
+app.get('/api/resume', async (req, res) => {
   try {
-    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('resume_url');
+    const row = await Setting.findOne({ key: 'resume_url' });
     res.json({ url: row ? row.value : '' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -503,9 +643,9 @@ app.get('/api/resume', (req, res) => {
 });
 
 // GET /api/blogs
-app.get('/api/blogs', (req, res) => {
+app.get('/api/blogs', async (req, res) => {
   try {
-    const blogs = db.prepare('SELECT * FROM blogs ORDER BY sort_order ASC, created_at DESC').all();
+    const blogs = await Blog.find({}).sort({ sort_order: 1, created_at: -1 });
     res.json(blogs);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -513,9 +653,9 @@ app.get('/api/blogs', (req, res) => {
 });
 
 // GET /api/socials
-app.get('/api/socials', (req, res) => {
+app.get('/api/socials', async (req, res) => {
   try {
-    const socials = db.prepare('SELECT * FROM socials ORDER BY sort_order ASC').all();
+    const socials = await Social.find({}).sort({ sort_order: 1 });
     res.json(socials);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -523,14 +663,14 @@ app.get('/api/socials', (req, res) => {
 });
 
 // POST /api/messages — submit contact form message
-app.post('/api/messages', (req, res) => {
+app.post('/api/messages', async (req, res) => {
   try {
     const { name, email, message } = req.body;
     if (!name || !email || !message) {
       return res.status(400).json({ error: 'Name, email, and message are required.' });
     }
     const ip = req.ip || req.headers['x-forwarded-for'] || '';
-    db.prepare('INSERT INTO messages (name, email, message, ip) VALUES (?, ?, ?, ?)').run(name, email, message, ip);
+    await Message.create({ name, email, message, ip });
     res.json({ success: true, message: 'Message sent successfully.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -539,7 +679,7 @@ app.post('/api/messages', (req, res) => {
 
 /* ════════════════════════════════════════════
    AUTH ROUTES
-════════════════════════════════════════════ */
+   ════════════════════════════════════════════ */
 
 // GET /api/auth-check
 app.get('/api/auth-check', (req, res) => {
@@ -550,14 +690,18 @@ app.get('/api/auth-check', (req, res) => {
 });
 
 // POST /login
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  const admin = db.prepare('SELECT * FROM admin WHERE username = ?').get(username);
-  if (!admin || !bcrypt.compareSync(password, admin.password)) {
-    return res.json({ success: false, message: 'Invalid username or password.' });
+app.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const admin = await Admin.findOne({ username });
+    if (!admin || !bcrypt.compareSync(password, admin.password)) {
+      return res.json({ success: false, message: 'Invalid username or password.' });
+    }
+    req.session.admin = { id: admin._id.toString(), username: admin.username };
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
-  req.session.admin = { id: admin.id, username: admin.username };
-  res.json({ success: true });
 });
 
 // POST /logout
@@ -567,7 +711,7 @@ app.post('/logout', (req, res) => {
 
 /* ════════════════════════════════════════════
    ADMIN ROUTES (protected)
-════════════════════════════════════════════ */
+   ════════════════════════════════════════════ */
 
 // GET /admin — dashboard
 app.get('/admin', requireAuth, (req, res) => {
@@ -577,58 +721,95 @@ app.get('/admin', requireAuth, (req, res) => {
 /* ─── ADMIN API ───────────────────────────── */
 
 // GET /admin/api/projects
-app.get('/admin/api/projects', requireAuth, (req, res) => {
-  const projects = db.prepare('SELECT * FROM projects ORDER BY is_pinned DESC, created_at DESC').all();
-  res.json(projects.map(p => ({
-    ...p,
-    tags: p.tags ? p.tags.split(',').map(t => t.trim()).filter(Boolean) : []
-  })));
+app.get('/admin/api/projects', requireAuth, async (req, res) => {
+  try {
+    const projects = await Project.find({}).sort({ is_pinned: -1, created_at: -1 });
+    res.json(projects.map(p => {
+      const plain = p.toObject();
+      return {
+        ...plain,
+        tags: plain.tags ? plain.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+      };
+    }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /admin/api/projects — create
-app.post('/admin/api/projects', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), (req, res) => {
+app.post('/admin/api/projects', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), async (req, res) => {
   try {
     const { title, description, full_desc, emoji, tags, github_url, linkedin_url, team, gradient, is_pinned } = req.body;
     if (!title || !description) return res.status(400).json({ error: 'Title and description are required.' });
 
-    const image_url = req.files && req.files.image ? `/uploads/${req.files.image[0].filename}` : '';
-    const gallery_urls = req.files && req.files.gallery ? req.files.gallery.map(f => `/uploads/${f.filename}`).join(',') : '';
-    const pinned = is_pinned === 'true' || is_pinned === '1' ? 1 : 0;
-    const result = db.prepare(`
-      INSERT INTO projects (title, description, full_desc, emoji, image_url, tags, github_url, linkedin_url, team, gradient, is_pinned, gallery_urls)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title, description, full_desc || '', emoji || '🚀', image_url, tags || '', github_url || '', linkedin_url || '', team || '', gradient || 'linear-gradient(135deg,#1a1a2e,#16213e)', pinned, gallery_urls);
+    let image_url = '';
+    if (req.files && req.files.image) {
+      image_url = await saveFile(req.files.image[0]);
+    }
 
-    res.json({ success: true, id: result.lastInsertRowid });
+    let gallery_urls = '';
+    if (req.files && req.files.gallery) {
+      const saved = await Promise.all(req.files.gallery.map(saveFile));
+      gallery_urls = saved.filter(Boolean).join(',');
+    }
+
+    const pinned = is_pinned === 'true' || is_pinned === '1' ? 1 : 0;
+    const newProj = await Project.create({
+      title,
+      description,
+      full_desc: full_desc || '',
+      emoji: emoji || '🚀',
+      image_url,
+      tags: tags || '',
+      github_url: github_url || '',
+      linkedin_url: linkedin_url || '',
+      team: team || '',
+      gradient: gradient || 'linear-gradient(135deg,#1a1a2e,#16213e)',
+      is_pinned: pinned,
+      gallery_urls
+    });
+
+    res.json({ success: true, id: newProj._id.toString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT /admin/api/projects/:id — update
-app.put('/admin/api/projects/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), (req, res) => {
+app.put('/admin/api/projects/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), async (req, res) => {
   try {
     const { title, description, full_desc, emoji, tags, github_url, linkedin_url, team, gradient, is_pinned } = req.body;
-    const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+    const existing = await Project.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found' });
 
-    const image_url = req.files && req.files.image ? `/uploads/${req.files.image[0].filename}` : existing.image_url;
+    let image_url = existing.image_url;
+    if (req.files && req.files.image) {
+      await deleteFile(existing.image_url);
+      image_url = await saveFile(req.files.image[0]);
+    }
 
     let gallery_urls = existing.gallery_urls || '';
     if (req.files && req.files.gallery) {
-      const newUrls = req.files.gallery.map(f => `/uploads/${f.filename}`).join(',');
+      const saved = await Promise.all(req.files.gallery.map(saveFile));
+      const newUrls = saved.filter(Boolean).join(',');
       gallery_urls = gallery_urls ? gallery_urls + ',' + newUrls : newUrls;
     }
     const pinned = is_pinned === 'true' || is_pinned === '1' ? 1 : 0;
 
-    db.prepare(`
-      UPDATE projects
-      SET title=?, description=?, full_desc=?, emoji=?, image_url=?, tags=?,
-          github_url=?, linkedin_url=?, team=?, gradient=?, is_pinned=?, gallery_urls=?
-      WHERE id=?
-    `).run(title, description, full_desc || '', emoji || '🚀', image_url, tags || '',
-      github_url || '', linkedin_url || '', team || '', gradient || existing.gradient, pinned, gallery_urls, req.params.id);
+    existing.title = title;
+    existing.description = description;
+    existing.full_desc = full_desc || '';
+    existing.emoji = emoji || '🚀';
+    existing.image_url = image_url;
+    existing.tags = tags || '';
+    existing.github_url = github_url || '';
+    existing.linkedin_url = linkedin_url || '';
+    existing.team = team || '';
+    existing.gradient = gradient || existing.gradient;
+    existing.is_pinned = pinned;
+    existing.gallery_urls = gallery_urls;
 
+    await existing.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -636,18 +817,17 @@ app.put('/admin/api/projects/:id', requireAuth, upload.fields([{ name: 'image', 
 });
 
 // DELETE /admin/api/projects/:id
-app.delete('/admin/api/projects/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/projects/:id', requireAuth, async (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+    const existing = await Project.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found' });
 
-    // Delete uploaded image file if exists
-    if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, 'public', existing.image_url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await deleteFile(existing.image_url);
+    if (existing.gallery_urls) {
+      await Promise.all(existing.gallery_urls.split(',').filter(Boolean).map(deleteFile));
     }
 
-    db.prepare('DELETE FROM projects WHERE id = ?').run(req.params.id);
+    await Project.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -657,23 +837,36 @@ app.delete('/admin/api/projects/:id', requireAuth, (req, res) => {
 /* ─── CERTIFICATES ADMIN CRUD ─── */
 
 // GET /admin/api/certificates
-app.get('/admin/api/certificates', requireAuth, (req, res) => {
+app.get('/admin/api/certificates', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM certificates ORDER BY sort_order ASC, date DESC').all());
+    const certs = await Certificate.find({}).sort({ sort_order: 1, date: -1 });
+    res.json(certs);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /admin/api/certificates
-app.post('/admin/api/certificates', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), (req, res) => {
+app.post('/admin/api/certificates', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), async (req, res) => {
   try {
     const { title, issuer, date, credential_url, sort_order } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
-    const image_url = req.files && req.files.image ? `/uploads/${req.files.image[0].filename}` : '';
+
+    let image_url = '';
+    if (req.files && req.files.image) {
+      image_url = await saveFile(req.files.image[0]);
+    }
+
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('INSERT INTO certificates (title, issuer, date, image_url, credential_url, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(title, issuer || '', date || '', image_url, credential_url || '', order);
+    await Certificate.create({
+      title,
+      issuer: issuer || '',
+      date: date || '',
+      image_url,
+      credential_url: credential_url || '',
+      sort_order: order
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -681,15 +874,27 @@ app.post('/admin/api/certificates', requireAuth, upload.fields([{ name: 'image',
 });
 
 // PUT /admin/api/certificates/:id
-app.put('/admin/api/certificates/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), (req, res) => {
+app.put('/admin/api/certificates/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), async (req, res) => {
   try {
     const { title, issuer, date, credential_url, sort_order } = req.body;
-    const existing = db.prepare('SELECT * FROM certificates WHERE id = ?').get(req.params.id);
+    const existing = await Certificate.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
-    const image_url = req.files && req.files.image ? `/uploads/${req.files.image[0].filename}` : existing.image_url;
+
+    let image_url = existing.image_url;
+    if (req.files && req.files.image) {
+      await deleteFile(existing.image_url);
+      image_url = await saveFile(req.files.image[0]);
+    }
+
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('UPDATE certificates SET title=?, issuer=?, date=?, image_url=?, credential_url=?, sort_order=? WHERE id=?')
-      .run(title, issuer || '', date || '', image_url, credential_url || '', order, req.params.id);
+    existing.title = title;
+    existing.issuer = issuer || '';
+    existing.date = date || '';
+    existing.image_url = image_url;
+    existing.credential_url = credential_url || '';
+    existing.sort_order = order;
+
+    await existing.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -697,15 +902,13 @@ app.put('/admin/api/certificates/:id', requireAuth, upload.fields([{ name: 'imag
 });
 
 // DELETE /admin/api/certificates/:id
-app.delete('/admin/api/certificates/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/certificates/:id', requireAuth, async (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM certificates WHERE id = ?').get(req.params.id);
+    const existing = await Certificate.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
-    if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, 'public', existing.image_url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
-    db.prepare('DELETE FROM certificates WHERE id = ?').run(req.params.id);
+
+    await deleteFile(existing.image_url);
+    await Certificate.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -715,25 +918,44 @@ app.delete('/admin/api/certificates/:id', requireAuth, (req, res) => {
 /* ─── ACTIVITIES ADMIN CRUD ─── */
 
 // GET /admin/api/activities
-app.get('/admin/api/activities', requireAuth, (req, res) => {
+app.get('/admin/api/activities', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM activities ORDER BY sort_order ASC, date DESC').all());
+    res.json(await Activity.find({}).sort({ sort_order: 1, date: -1 }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /admin/api/activities
-app.post('/admin/api/activities', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), (req, res) => {
+app.post('/admin/api/activities', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), async (req, res) => {
   try {
     const { title, description, certificates, date, category, sort_order } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
-    const image_url = req.files && req.files.image ? `/uploads/${req.files.image[0].filename}` : '';
-    const newGallery = req.files && req.files.gallery ? req.files.gallery.map(f => `/uploads/${f.filename}`).join(',') : '';
+
+    let image_url = '';
+    if (req.files && req.files.image) {
+      image_url = await saveFile(req.files.image[0]);
+    }
+
+    let newGallery = '';
+    if (req.files && req.files.gallery) {
+      const saved = await Promise.all(req.files.gallery.map(saveFile));
+      newGallery = saved.filter(Boolean).join(',');
+    }
+
     const image_urls = image_url ? (newGallery ? image_url + ',' + newGallery : image_url) : newGallery;
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('INSERT INTO activities (title, description, image_urls, certificates, date, category, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(title, description || '', image_urls, certificates || '', date || '', category || '', order);
+
+    await Activity.create({
+      title,
+      description: description || '',
+      image_urls,
+      certificates: certificates || '',
+      date: date || '',
+      category: category || '',
+      sort_order: order
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -741,27 +963,41 @@ app.post('/admin/api/activities', requireAuth, upload.fields([{ name: 'image', m
 });
 
 // PUT /admin/api/activities/:id
-app.put('/admin/api/activities/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), (req, res) => {
+app.put('/admin/api/activities/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), async (req, res) => {
   try {
     const { title, description, certificates, date, category, sort_order } = req.body;
-    const existing = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.params.id);
+    const existing = await Activity.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
 
     let currentUrls = existing.image_urls || '';
     if (req.files && req.files.image) {
-      const newCover = `/uploads/${req.files.image[0].filename}`;
+      const newCover = await saveFile(req.files.image[0]);
       const parts = currentUrls.split(',').filter(Boolean);
-      if (parts.length > 0) parts[0] = newCover;
-      else parts.push(newCover);
+      if (parts.length > 0) {
+        await deleteFile(parts[0]);
+        parts[0] = newCover;
+      } else {
+        parts.push(newCover);
+      }
       currentUrls = parts.join(',');
     }
+
     if (req.files && req.files.gallery) {
-      const newGals = req.files.gallery.map(f => `/uploads/${f.filename}`).join(',');
+      const saved = await Promise.all(req.files.gallery.map(saveFile));
+      const newGals = saved.filter(Boolean).join(',');
       currentUrls = currentUrls ? currentUrls + ',' + newGals : newGals;
     }
+
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('UPDATE activities SET title=?, description=?, image_urls=?, certificates=?, date=?, category=?, sort_order=? WHERE id=?')
-      .run(title, description || '', currentUrls, certificates || '', date || '', category || '', order, req.params.id);
+    existing.title = title;
+    existing.description = description || '';
+    existing.image_urls = currentUrls;
+    existing.certificates = certificates || '';
+    existing.date = date || '';
+    existing.category = category || '';
+    existing.sort_order = order;
+
+    await existing.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -769,19 +1005,16 @@ app.put('/admin/api/activities/:id', requireAuth, upload.fields([{ name: 'image'
 });
 
 // DELETE /admin/api/activities/:id
-app.delete('/admin/api/activities/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/activities/:id', requireAuth, async (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM activities WHERE id = ?').get(req.params.id);
+    const existing = await Activity.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
+
     if (existing.image_urls) {
-      existing.image_urls.split(',').filter(Boolean).forEach(url => {
-        if (url.startsWith('/uploads/')) {
-          const filePath = path.join(__dirname, 'public', url);
-          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }
-      });
+      await Promise.all(existing.image_urls.split(',').filter(Boolean).map(deleteFile));
     }
-    db.prepare('DELETE FROM activities WHERE id = ?').run(req.params.id);
+
+    await Activity.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -791,22 +1024,30 @@ app.delete('/admin/api/activities/:id', requireAuth, (req, res) => {
 /* ─── UPCOMING PROJECTS ADMIN CRUD ─── */
 
 // GET /admin/api/upcoming
-app.get('/admin/api/upcoming', requireAuth, (req, res) => {
+app.get('/admin/api/upcoming', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM upcoming_projects ORDER BY sort_order ASC, expected_date ASC').all());
+    res.json(await UpcomingProject.find({}).sort({ sort_order: 1, expected_date: 1 }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /admin/api/upcoming
-app.post('/admin/api/upcoming', requireAuth, (req, res) => {
+app.post('/admin/api/upcoming', requireAuth, async (req, res) => {
   try {
     const { title, description, expected_date, status, tech_stack, sort_order } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('INSERT INTO upcoming_projects (title, description, expected_date, status, tech_stack, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(title, description || '', expected_date || '', status || 'planning', tech_stack || '', order);
+
+    await UpcomingProject.create({
+      title,
+      description: description || '',
+      expected_date: expected_date || '',
+      status: status || 'planning',
+      tech_stack: tech_stack || '',
+      sort_order: order
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -814,14 +1055,21 @@ app.post('/admin/api/upcoming', requireAuth, (req, res) => {
 });
 
 // PUT /admin/api/upcoming/:id
-app.put('/admin/api/upcoming/:id', requireAuth, (req, res) => {
+app.put('/admin/api/upcoming/:id', requireAuth, async (req, res) => {
   try {
     const { title, description, expected_date, status, tech_stack, sort_order } = req.body;
-    const existing = db.prepare('SELECT * FROM upcoming_projects WHERE id = ?').get(req.params.id);
+    const existing = await UpcomingProject.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('UPDATE upcoming_projects SET title=?, description=?, expected_date=?, status=?, tech_stack=?, sort_order=? WHERE id=?')
-      .run(title, description || '', expected_date || '', status || 'planning', tech_stack || '', order, req.params.id);
+
+    existing.title = title;
+    existing.description = description || '';
+    existing.expected_date = expected_date || '';
+    existing.status = status || 'planning';
+    existing.tech_stack = tech_stack || '';
+    existing.sort_order = order;
+
+    await existing.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -829,9 +1077,9 @@ app.put('/admin/api/upcoming/:id', requireAuth, (req, res) => {
 });
 
 // DELETE /admin/api/upcoming/:id
-app.delete('/admin/api/upcoming/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/upcoming/:id', requireAuth, async (req, res) => {
   try {
-    db.prepare('DELETE FROM upcoming_projects WHERE id = ?').run(req.params.id);
+    await UpcomingProject.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -841,23 +1089,35 @@ app.delete('/admin/api/upcoming/:id', requireAuth, (req, res) => {
 /* ─── PARTNERS ADMIN CRUD ─── */
 
 // GET /admin/api/partners
-app.get('/admin/api/partners', requireAuth, (req, res) => {
+app.get('/admin/api/partners', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM partners ORDER BY sort_order ASC, name ASC').all());
+    res.json(await Partner.find({}).sort({ sort_order: 1, name: 1 }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /admin/api/partners
-app.post('/admin/api/partners', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), (req, res) => {
+app.post('/admin/api/partners', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), async (req, res) => {
   try {
     const { name, role, link, bio, sort_order } = req.body;
     if (!name || !role) return res.status(400).json({ error: 'Name and role are required.' });
-    const image_url = req.files && req.files.image ? `/uploads/${req.files.image[0].filename}` : '';
+
+    let image_url = '';
+    if (req.files && req.files.image) {
+      image_url = await saveFile(req.files.image[0]);
+    }
+
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('INSERT INTO partners (name, role, image_url, link, bio, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(name, role, image_url, link || '', bio || '', order);
+    await Partner.create({
+      name,
+      role,
+      image_url,
+      link: link || '',
+      bio: bio || '',
+      sort_order: order
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -865,15 +1125,27 @@ app.post('/admin/api/partners', requireAuth, upload.fields([{ name: 'image', max
 });
 
 // PUT /admin/api/partners/:id
-app.put('/admin/api/partners/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), (req, res) => {
+app.put('/admin/api/partners/:id', requireAuth, upload.fields([{ name: 'image', maxCount: 1 }]), async (req, res) => {
   try {
     const { name, role, link, bio, sort_order } = req.body;
-    const existing = db.prepare('SELECT * FROM partners WHERE id = ?').get(req.params.id);
+    const existing = await Partner.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
-    const image_url = req.files && req.files.image ? `/uploads/${req.files.image[0].filename}` : existing.image_url;
+
+    let image_url = existing.image_url;
+    if (req.files && req.files.image) {
+      await deleteFile(existing.image_url);
+      image_url = await saveFile(req.files.image[0]);
+    }
+
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('UPDATE partners SET name=?, role=?, image_url=?, link=?, bio=?, sort_order=? WHERE id=?')
-      .run(name, role, image_url, link || '', bio || '', order, req.params.id);
+    existing.name = name;
+    existing.role = role;
+    existing.image_url = image_url;
+    existing.link = link || '';
+    existing.bio = bio || '';
+    existing.sort_order = order;
+
+    await existing.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -881,15 +1153,13 @@ app.put('/admin/api/partners/:id', requireAuth, upload.fields([{ name: 'image', 
 });
 
 // DELETE /admin/api/partners/:id
-app.delete('/admin/api/partners/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/partners/:id', requireAuth, async (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM partners WHERE id = ?').get(req.params.id);
+    const existing = await Partner.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found.' });
-    if (existing.image_url && existing.image_url.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, 'public', existing.image_url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
-    db.prepare('DELETE FROM partners WHERE id = ?').run(req.params.id);
+
+    await deleteFile(existing.image_url);
+    await Partner.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -897,45 +1167,58 @@ app.delete('/admin/api/partners/:id', requireAuth, (req, res) => {
 });
 
 /* ─── BLOGS ADMIN CRUD ─── */
-app.get('/admin/api/blogs', requireAuth, (req, res) => {
+app.get('/admin/api/blogs', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM blogs ORDER BY sort_order ASC, created_at DESC').all());
+    res.json(await Blog.find({}).sort({ sort_order: 1, created_at: -1 }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/admin/api/blogs', requireAuth, (req, res) => {
+app.post('/admin/api/blogs', requireAuth, async (req, res) => {
   try {
     const { title, description, link, platform, sort_order } = req.body;
     if (!title || !link) return res.status(400).json({ error: 'Title and link are required.' });
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('INSERT INTO blogs (title, description, link, platform, sort_order) VALUES (?, ?, ?, ?, ?)')
-      .run(title, description || '', link, platform || 'Medium', order);
+
+    await Blog.create({
+      title,
+      description: description || '',
+      link,
+      platform: platform || 'Medium',
+      sort_order: order
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put('/admin/api/blogs/:id', requireAuth, (req, res) => {
+app.put('/admin/api/blogs/:id', requireAuth, async (req, res) => {
   try {
     const { title, description, link, platform, sort_order } = req.body;
     if (!title || !link) return res.status(400).json({ error: 'Title and link are required.' });
-    const existing = db.prepare('SELECT * FROM blogs WHERE id = ?').get(req.params.id);
+    const existing = await Blog.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Blog not found.' });
+
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('UPDATE blogs SET title=?, description=?, link=?, platform=?, sort_order=? WHERE id=?')
-      .run(title, description || '', link, platform || 'Medium', order, req.params.id);
+    existing.title = title;
+    existing.description = description || '';
+    existing.link = link;
+    existing.platform = platform || 'Medium';
+    existing.sort_order = order;
+
+    await existing.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete('/admin/api/blogs/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/blogs/:id', requireAuth, async (req, res) => {
   try {
-    db.prepare('DELETE FROM blogs WHERE id = ?').run(req.params.id);
+    await Blog.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -943,45 +1226,54 @@ app.delete('/admin/api/blogs/:id', requireAuth, (req, res) => {
 });
 
 /* ─── SOCIALS ADMIN CRUD ─── */
-app.get('/admin/api/socials', requireAuth, (req, res) => {
+app.get('/admin/api/socials', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM socials ORDER BY sort_order ASC').all());
+    res.json(await Social.find({}).sort({ sort_order: 1 }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/admin/api/socials', requireAuth, (req, res) => {
+app.post('/admin/api/socials', requireAuth, async (req, res) => {
   try {
     const { name, url, sort_order } = req.body;
     if (!name || !url) return res.status(400).json({ error: 'Name and URL are required.' });
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('INSERT INTO socials (name, url, sort_order) VALUES (?, ?, ?)')
-      .run(name, url, order);
+
+    await Social.create({
+      name,
+      url,
+      sort_order: order
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put('/admin/api/socials/:id', requireAuth, (req, res) => {
+app.put('/admin/api/socials/:id', requireAuth, async (req, res) => {
   try {
     const { name, url, sort_order } = req.body;
     if (!name || !url) return res.status(400).json({ error: 'Name and URL are required.' });
-    const existing = db.prepare('SELECT * FROM socials WHERE id = ?').get(req.params.id);
+    const existing = await Social.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Social link not found.' });
+
     const order = parseInt(sort_order, 10) || 0;
-    db.prepare('UPDATE socials SET name=?, url=?, sort_order=? WHERE id=?')
-      .run(name, url, order, req.params.id);
+    existing.name = name;
+    existing.url = url;
+    existing.sort_order = order;
+
+    await existing.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete('/admin/api/socials/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/socials/:id', requireAuth, async (req, res) => {
   try {
-    db.prepare('DELETE FROM socials WHERE id = ?').run(req.params.id);
+    await Social.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -991,18 +1283,18 @@ app.delete('/admin/api/socials/:id', requireAuth, (req, res) => {
 /* ─── MESSAGES ADMIN API ─── */
 
 // GET /admin/api/messages
-app.get('/admin/api/messages', requireAuth, (req, res) => {
+app.get('/admin/api/messages', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM messages ORDER BY created_at DESC').all());
+    res.json(await Message.find({}).sort({ created_at: -1 }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT /admin/api/messages/:id/read
-app.put('/admin/api/messages/:id/read', requireAuth, (req, res) => {
+app.put('/admin/api/messages/:id/read', requireAuth, async (req, res) => {
   try {
-    db.prepare('UPDATE messages SET is_read = 1 WHERE id = ?').run(req.params.id);
+    await Message.updateOne({ _id: req.params.id }, { is_read: 1 });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1010,9 +1302,9 @@ app.put('/admin/api/messages/:id/read', requireAuth, (req, res) => {
 });
 
 // DELETE /admin/api/messages/:id
-app.delete('/admin/api/messages/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/messages/:id', requireAuth, async (req, res) => {
   try {
-    db.prepare('DELETE FROM messages WHERE id = ?').run(req.params.id);
+    await Message.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1022,48 +1314,42 @@ app.delete('/admin/api/messages/:id', requireAuth, (req, res) => {
 /* ─── SKILLS ADMIN CRUD ─── */
 
 // GET /admin/api/skills
-app.get('/admin/api/skills', requireAuth, (req, res) => {
+app.get('/admin/api/skills', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM skills ORDER BY sort_order ASC, name ASC').all());
+    res.json(await Skill.find({}).sort({ sort_order: 1, name: 1 }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /admin/api/skills
-app.post('/admin/api/skills', requireAuth, (req, res) => {
+app.post('/admin/api/skills', requireAuth, async (req, res) => {
   try {
     const { name, position, custom_pos } = req.body;
     if (!name) return res.status(400).json({ error: 'Skill name is required.' });
 
-    // Insert with dummy sort_order
-    const result = db.prepare('INSERT INTO skills (name, sort_order) VALUES (?, 999999)').run(name);
-    const newId = result.lastInsertRowid;
+    const newSkill = await Skill.create({ name, sort_order: 999999 });
+    await reorderItems(Skill, newSkill._id, position, custom_pos);
 
-    // Reorder based on position requested
-    reorderItems('skills', newId, position, custom_pos);
-
-    res.json({ success: true, id: newId });
+    res.json({ success: true, id: newSkill._id.toString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT /admin/api/skills/:id
-app.put('/admin/api/skills/:id', requireAuth, (req, res) => {
+app.put('/admin/api/skills/:id', requireAuth, async (req, res) => {
   try {
     const { name, position, custom_pos } = req.body;
     if (!name) return res.status(400).json({ error: 'Skill name is required.' });
 
-    const existing = db.prepare('SELECT * FROM skills WHERE id = ?').get(req.params.id);
+    const existing = await Skill.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Skill not found.' });
 
-    // Update name
-    db.prepare('UPDATE skills SET name = ? WHERE id = ?').run(name, req.params.id);
+    existing.name = name;
+    await existing.save();
 
-    // Reorder
-    reorderItems('skills', existing.id, position, custom_pos);
-
+    await reorderItems(Skill, existing._id, position, custom_pos);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1071,19 +1357,19 @@ app.put('/admin/api/skills/:id', requireAuth, (req, res) => {
 });
 
 // DELETE /admin/api/skills/:id
-app.delete('/admin/api/skills/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/skills/:id', requireAuth, async (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM skills WHERE id = ?').get(req.params.id);
+    const existing = await Skill.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Skill not found.' });
 
-    db.prepare('DELETE FROM skills WHERE id = ?').run(req.params.id);
+    await Skill.deleteOne({ _id: req.params.id });
 
     // Compact remaining sort_orders
-    const items = db.prepare('SELECT id FROM skills ORDER BY sort_order ASC, id ASC').all();
-    const updateStmt = db.prepare('UPDATE skills SET sort_order = ? WHERE id = ?');
-    db.transaction((list) => {
-      list.forEach((item, idx) => updateStmt.run(idx + 1, item.id));
-    })(items);
+    const items = await Skill.find({}).sort({ sort_order: 1, _id: 1 });
+    for (let idx = 0; idx < items.length; idx++) {
+      items[idx].sort_order = idx + 1;
+      await items[idx].save();
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -1094,56 +1380,56 @@ app.delete('/admin/api/skills/:id', requireAuth, (req, res) => {
 /* ─── EDUCATION ADMIN CRUD ─── */
 
 // GET /admin/api/education
-app.get('/admin/api/education', requireAuth, (req, res) => {
+app.get('/admin/api/education', requireAuth, async (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM education ORDER BY sort_order ASC, title ASC').all());
+    res.json(await Education.find({}).sort({ sort_order: 1, title: 1 }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /admin/api/education
-app.post('/admin/api/education', requireAuth, (req, res) => {
+app.post('/admin/api/education', requireAuth, async (req, res) => {
   try {
     const { icon, title, subtitle, institution, date_range, tags, position, custom_pos } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
 
-    // Insert with dummy sort_order
-    const result = db.prepare(`
-      INSERT INTO education (icon, title, subtitle, institution, date_range, tags, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, 999999)
-    `).run(icon || '🎓', title, subtitle || '', institution || '', date_range || '', tags || '');
+    const newEdu = await Education.create({
+      icon: icon || '🎓',
+      title,
+      subtitle: subtitle || '',
+      institution: institution || '',
+      date_range: date_range || '',
+      tags: tags || '',
+      sort_order: 999999
+    });
 
-    const newId = result.lastInsertRowid;
-
-    // Reorder based on position requested
-    reorderItems('education', newId, position, custom_pos);
-
-    res.json({ success: true, id: newId });
+    await reorderItems(Education, newEdu._id, position, custom_pos);
+    res.json({ success: true, id: newEdu._id.toString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT /admin/api/education/:id
-app.put('/admin/api/education/:id', requireAuth, (req, res) => {
+app.put('/admin/api/education/:id', requireAuth, async (req, res) => {
   try {
     const { icon, title, subtitle, institution, date_range, tags, position, custom_pos } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required.' });
 
-    const existing = db.prepare('SELECT * FROM education WHERE id = ?').get(req.params.id);
+    const existing = await Education.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Education entry not found.' });
 
-    // Update
-    db.prepare(`
-      UPDATE education
-      SET icon = ?, title = ?, subtitle = ?, institution = ?, date_range = ?, tags = ?
-      WHERE id = ?
-    `).run(icon || '🎓', title, subtitle || '', institution || '', date_range || '', tags || '', req.params.id);
+    existing.icon = icon || '🎓';
+    existing.title = title;
+    existing.subtitle = subtitle || '';
+    existing.institution = institution || '';
+    existing.date_range = date_range || '';
+    existing.tags = tags || '';
 
-    // Reorder
-    reorderItems('education', existing.id, position, custom_pos);
+    await existing.save();
 
+    await reorderItems(Education, existing._id, position, custom_pos);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1151,19 +1437,19 @@ app.put('/admin/api/education/:id', requireAuth, (req, res) => {
 });
 
 // DELETE /admin/api/education/:id
-app.delete('/admin/api/education/:id', requireAuth, (req, res) => {
+app.delete('/admin/api/education/:id', requireAuth, async (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM education WHERE id = ?').get(req.params.id);
+    const existing = await Education.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Education entry not found.' });
 
-    db.prepare('DELETE FROM education WHERE id = ?').run(req.params.id);
+    await Education.deleteOne({ _id: req.params.id });
 
     // Compact remaining sort_orders
-    const items = db.prepare('SELECT id FROM education ORDER BY sort_order ASC, id ASC').all();
-    const updateStmt = db.prepare('UPDATE education SET sort_order = ? WHERE id = ?');
-    db.transaction((list) => {
-      list.forEach((item, idx) => updateStmt.run(idx + 1, item.id));
-    })(items);
+    const items = await Education.find({}).sort({ sort_order: 1, _id: 1 });
+    for (let idx = 0; idx < items.length; idx++) {
+      items[idx].sort_order = idx + 1;
+      await items[idx].save();
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -1174,13 +1460,17 @@ app.delete('/admin/api/education/:id', requireAuth, (req, res) => {
 /* ─── RESUME ADMIN API ─── */
 
 // POST /admin/api/resume
-app.post('/admin/api/resume', requireAuth, upload.fields([{ name: 'resume', maxCount: 1 }]), (req, res) => {
+app.post('/admin/api/resume', requireAuth, upload.fields([{ name: 'resume', maxCount: 1 }]), async (req, res) => {
   try {
     if (!req.files || !req.files.resume) {
       return res.status(400).json({ error: 'No file uploaded.' });
     }
-    const resumeUrl = `/uploads/${req.files.resume[0].filename}`;
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('resume_url', resumeUrl);
+    const currentResume = await Setting.findOne({ key: 'resume_url' });
+    if (currentResume && currentResume.value) {
+      await deleteFile(currentResume.value);
+    }
+    const resumeUrl = await saveFile(req.files.resume[0]);
+    await Setting.updateOne({ key: 'resume_url' }, { value: resumeUrl }, { upsert: true });
     res.json({ success: true, url: resumeUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1188,33 +1478,39 @@ app.post('/admin/api/resume', requireAuth, upload.fields([{ name: 'resume', maxC
 });
 
 // POST /admin/api/change-password
-app.post('/admin/api/change-password', requireAuth, (req, res) => {
-  const { current, newpass, confirm } = req.body;
-  if (newpass !== confirm) return res.json({ success: false, message: 'New passwords do not match.' });
-  if (newpass.length < 6) return res.json({ success: false, message: 'Password must be at least 6 characters.' });
+app.post('/admin/api/change-password', requireAuth, async (req, res) => {
+  try {
+    const { current, newpass, confirm } = req.body;
+    if (newpass !== confirm) return res.json({ success: false, message: 'New passwords do not match.' });
+    if (newpass.length < 6) return res.json({ success: false, message: 'Password must be at least 6 characters.' });
 
-  const admin = db.prepare('SELECT * FROM admin WHERE id = ?').get(req.session.admin.id);
-  if (!bcrypt.compareSync(current, admin.password)) {
-    return res.json({ success: false, message: 'Current password is incorrect.' });
+    const admin = await Admin.findById(req.session.admin.id);
+    if (!bcrypt.compareSync(current, admin.password)) {
+      return res.json({ success: false, message: 'Current password is incorrect.' });
+    }
+
+    const hash = bcrypt.hashSync(newpass, 10);
+    admin.password = hash;
+    await admin.save();
+    res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
-
-  const hash = bcrypt.hashSync(newpass, 10);
-  db.prepare('UPDATE admin SET password = ? WHERE id = ?').run(hash, admin.id);
-  res.json({ success: true, message: 'Password updated successfully.' });
 });
 
 // POST /admin/api/change-username
-app.post('/admin/api/change-username', requireAuth, (req, res) => {
-  const { newUsername, password } = req.body;
-  if (!newUsername || newUsername.trim() === '') return res.json({ success: false, message: 'New username cannot be empty.' });
-
-  const admin = db.prepare('SELECT * FROM admin WHERE id = ?').get(req.session.admin.id);
-  if (!bcrypt.compareSync(password, admin.password)) {
-    return res.json({ success: false, message: 'Password is incorrect.' });
-  }
-
+app.post('/admin/api/change-username', requireAuth, async (req, res) => {
   try {
-    db.prepare('UPDATE admin SET username = ? WHERE id = ?').run(newUsername.trim(), admin.id);
+    const { newUsername, password } = req.body;
+    if (!newUsername || newUsername.trim() === '') return res.json({ success: false, message: 'New username cannot be empty.' });
+
+    const admin = await Admin.findById(req.session.admin.id);
+    if (!bcrypt.compareSync(password, admin.password)) {
+      return res.json({ success: false, message: 'Password is incorrect.' });
+    }
+
+    admin.username = newUsername.trim();
+    await admin.save();
     req.session.admin.username = newUsername.trim();
     res.json({ success: true, message: 'Username updated successfully.' });
   } catch (err) {
