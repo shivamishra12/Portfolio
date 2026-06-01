@@ -739,10 +739,6 @@ app.post('/logout', (req, res) => {
    ADMIN ROUTES (protected)
    ════════════════════════════════════════════ */
 
-// GET /admin — dashboard
-app.get('/admin', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'admin.html'));
-});
 
 /* ─── ADMIN API ───────────────────────────── */
 
