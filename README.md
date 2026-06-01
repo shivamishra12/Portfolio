@@ -1,26 +1,24 @@
 # 🌱 Shivam Mishra — AI Developer Portfolio (v2)
 
-A premium, dynamic, and full-stack personal portfolio application built with a lightweight and fast Node.js + Express backend, SQLite database, and vanilla HTML/CSS/JS frontend featuring a high-fidelity glassmorphism design, custom particle mesh backgrounds, custom cursor effects, and a secure CRUD Admin Console.
+A premium, dynamic, and full-stack personal portfolio application built with a lightweight and fast Node.js + Express backend, MongoDB database (via Mongoose), and vanilla HTML/CSS/JS frontend featuring a high-fidelity glassmorphism design, custom particle connection backgrounds, mouse-tilt cursor animations, and a secure CRUD Admin Console.
 
 ---
 
 ## 📁 Project Structure
 
-The project has been consolidated into exactly **two main code files** to support easy hosting and single-page application (SPA) client-side routing:
+The project is structured to make hosting and deployment extremely easy, featuring a unified single-page application (SPA) client-side routing layout:
 
-```
+```text
 portfolio-v2/
-├── server.js              ← The Backend (Express server, SQLite DB tables, API routes, session auth)
+├── server.js              ← The Backend (Express server, Mongoose models, session auth, DB-backed media serving)
 ├── package.json           ← Node dependencies and startup scripts
 ├── package-lock.json      
-├── .gitignore             ← Excludes node_modules, database file, and dynamic uploads from Git
-├── portfolio.db           ← SQLite database (automatically generated and seeded on start)
-├── update_projects.js     ← Dev helper script to seed default portfolio projects
+├── .gitignore             ← Excludes node_modules and local .env configurations from Git
+├── .env                   ← Local environment variables (DB URLs, admin email/password, session secrets)
 └── public/                ← Static server folder
     ├── index.html         ← The Frontend (Unified SPA: public portfolio, admin login, and CRUD panel)
     ├── groot_logo.png     
-    ├── profile.jpeg       
-    └── uploads/           ← Stores uploaded images, certificates, and resumes
+    └── profile.jpeg       
 ```
 
 ---
@@ -28,7 +26,7 @@ portfolio-v2/
 ## 🚀 Setup & Run
 
 ### 1. Requirements
-Ensure you have **Node.js** (v18+) installed.
+Ensure you have **Node.js** (v18+) and a **MongoDB** database instance (either running locally or a free cluster on MongoDB Atlas).
 
 ### 2. Install Dependencies
 Navigate to the root directory and run:
@@ -36,7 +34,20 @@ Navigate to the root directory and run:
 npm install
 ```
 
-### 3. Running the Application
+### 3. Local Environment Variables
+Create a file named `.env` in the root directory (this is already ignored by Git) and add the following template:
+```env
+# MongoDB Connection String (Replace <db_username> and <db_password> with your details)
+MONGODB_URI=mongodb+srv://<db_username>:<db_password>@cluster0.lkoxldo.mongodb.net/portfolio?retryWrites=true&w=majority
+
+# App Configurations
+PORT=3000
+SESSION_SECRET=groot-is-groot-secret-key-2025
+ADMIN_EMAIL=Shivamwork321@gmail.com
+ADMIN_PASSWORD=<your_admin_password>
+```
+
+### 4. Running the Application
 - **Production Mode**:
   ```bash
   npm start
@@ -46,146 +57,41 @@ npm install
   npm run dev
   ```
 
-### 4. Ports & Access
+### 5. Ports & Access
 Once started, the application is accessible at:
 - **Public Portfolio** → `http://localhost:3000`
 - **Admin Panel** → `http://localhost:3000/admin` (redirects to `/login` if not authenticated)
 
 ---
 
-## 🔐 Login Credentials
+## 🗄️ Database & Schema
 
-The database automatically seeds a default admin user on first startup if no admin exists.
+The application uses **MongoDB** as its primary store. On startup, the server automatically connects, establishes the schemas, and seeds default portfolio sections and administrator configurations if the database is empty.
 
-> ⚠️ **Important Security Note**: For security reasons, actual default credentials should not be published in public documentation. You can find the initial default credentials seeded within the database setup logic inside `server.js` (lines 143-150), use them for your first login, and **immediately change them** using the **Settings** tab in the Admin Console.
+### Collections list:
+
+1. **`Admin`**: Stores credentials for backend authentication.
+2. **`Project`**: Primary portfolio projects with gradient configurations, tags, emojis, and detail fields.
+3. **`Certificate`**: Course certifications, issuer info, and verification URLs.
+4. **`Activity`**: Hackathons, coding contests, and extracurricular activities.
+5. **`UpcomingProject`**: Pipeline tracking with status tags (`planning`, `in-progress`, `coming-soon`).
+6. **`Partner`**: Project collaborators, roles, and profile URLs.
+7. **`Message`**: Visitor queries sent via the contact form, including their IP address for security.
+8. **`Setting`**: Key-value metadata storage (e.g. stores the `resume_url` path dynamically).
+9. **`Skill`**: Custom technology tags shown in the Skills section.
+10. **`Education`**: Timelines, institutions, date ranges, and academic tags.
+11. **`Blog`**: Articles dynamically fetched and grouped by publication platform.
+12. **`Social`**: Links to social accounts mapped to brand icons on the client interface.
+13. **`Media`**: Dynamic database-backed files storing uploaded badges, project covers, and resumes as binary data (`Buffer`).
 
 ---
 
-## 🗄️ Database Schema
+## 💾 Zero-Disk File Uploads
 
-The SQLite database (`portfolio.db`) uses `better-sqlite3` and defines the following **12 tables**:
-
-```mermaid
-erDiagram
-    projects {
-        int id PK
-        text title
-        text description
-        text full_desc
-        text emoji
-        text image_url
-        text tags
-        text github_url
-        text linkedin_url
-        text team
-        text gradient
-        int is_pinned
-        text gallery_urls
-        datetime created_at
-    }
-    certificates {
-        int id PK
-        text title
-        text issuer
-        text date
-        text image_url
-        text credential_url
-        int sort_order
-        datetime created_at
-    }
-    activities {
-        int id PK
-        text title
-        text description
-        text image_urls
-        text certificates
-        text date
-        text category
-        int sort_order
-        datetime created_at
-    }
-    upcoming_projects {
-        int id PK
-        text title
-        text description
-        text expected_date
-        text status
-        text tech_stack
-        int sort_order
-        datetime created_at
-    }
-    partners {
-        int id PK
-        text name
-        text role
-        text image_url
-        text link
-        text bio
-        int sort_order
-        datetime created_at
-    }
-    messages {
-        int id PK
-        text name
-        text email
-        text message
-        text ip
-        int is_read
-        datetime created_at
-    }
-    settings {
-        text key PK
-        text value
-    }
-    skills {
-        int id PK
-        text name
-        int sort_order
-        datetime created_at
-    }
-    education {
-        int id PK
-        text icon
-        text title
-        text subtitle
-        text institution
-        text date_range
-        text tags
-        int sort_order
-        datetime created_at
-    }
-    blogs {
-        int id PK
-        text title
-        text description
-        text link
-        text platform
-        int sort_order
-        datetime created_at
-    }
-    socials {
-        int id PK
-        text name
-        text url
-        int sort_order
-        datetime created_at
-    }
-```
-
-### Table Definitions:
-
-1. **`admin`**: Stores credentials for backend authentication.
-2. **`projects`**: Primary portfolio projects with gradient configurations, pins, emojis, and detail fields.
-3. **`certificates`**: Course certifications, issuer info, and verification URLs.
-4. **`activities`**: Hackathons, coding contests, and extracurricular categories.
-5. **`upcoming_projects`**: Expected pipeline tracking with status tags (`planning`, `in-progress`, `coming-soon`).
-6. **`partners`**: Project collaborators, specialized roles, and profile URLs.
-7. **`messages`**: Visitor queries sent via the contact form, including their IP address for security.
-8. **`settings`**: Key-value metadata storage (e.g. stores the `resume_url` path dynamically).
-9. **`skills`**: Custom technology tags shown in the Skills section.
-10. **`education`**: Timelines, institutions, date ranges, and academic tags.
-11. **`blogs`**: Articles dynamically fetched and grouped by publication platform.
-12. **`socials`**: Links to social accounts mapped to SVG brand icons on the client interface.
+All uploaded files (such as resume PDFs and project/badge images) are stored directly inside the **MongoDB `Media` collection** as binary buffers instead of being saved on the local disk filesystem.
+- When an administrator uploads a file via the Admin Dashboard, the server saves the file binary directly in MongoDB and generates a route path like `/uploads/:filename`.
+- When visitors load your site, the Express server retrieves the file from MongoDB and streams it directly to the browser with the correct MIME type.
+- **This design allows the entire application to be 100% database-backed, running perfectly on Render's free tier with zero data loss or need for expensive persistent volumes.**
 
 ---
 
@@ -212,20 +118,20 @@ The frontend interacts with the backend using the following public JSON endpoint
 
 ## 🛠️ Secure Admin Dashboard API
 
-All dashboard endpoints require the user to have an active session established via the `requireAuth` middleware. If authentication fails, the API responds with a redirect or JSON error.
+All dashboard endpoints require the user to have an active session established via the `requireAuth` middleware. Session data is stored securely in MongoDB using `connect-mongo`.
 
 ### Project CRUD
 - `GET /admin/api/projects` — Fetch all projects.
-- `POST /admin/api/projects` — Create project with cover image and optional gallery (supports multi-part uploads via `multer`).
+- `POST /admin/api/projects` — Create project with cover image and optional gallery.
 - `PUT /admin/api/projects/:id` — Update project metadata, changing pinned states and re-uploading images.
-- `DELETE /admin/api/projects/:id` — Delete project and remove related uploads from disk.
+- `DELETE /admin/api/projects/:id` — Delete project and remove related uploads from MongoDB.
 
 ### Additional CRUDs (Certificates, Activities, Partners, Upcoming, Skills, Education, Blogs, Socials)
 Each has standard REST handlers matching the fields in the schema:
 - `GET /admin/api/[section]` — List all records.
 - `POST /admin/api/[section]` — Create new record (supports position reordering parameters `top`, `middle`, `bottom`, `custom`).
 - `PUT /admin/api/[section]/:id` — Update existing record.
-- `DELETE /admin/api/[section]/:id` — Remove record and clean up associated assets.
+- `DELETE /admin/api/[section]/:id` — Remove record and clean up associated media files in database.
 
 ### Administrative Controls
 - `GET /admin/api/messages` — Review all messages left by visitors.
@@ -243,86 +149,47 @@ The interface relies on premium dark modes, harmony colors, and responsive desig
 
 - **Theme Palette**: Deep Dark Blue (`#04080f`), Rich Glassmorphism (`rgba(255,255,255,0.055)`), Vibrant Pink (`#f72585`), Crimson (`#e63946`).
 - **Typography**: Display Headers use `Syne`, tech badges and console logs use `Space Mono`.
-- **Canvas Animations**: An interactive, dynamic particle net background is rendered using JavaScript `canvas2d` mapping node connections within 110px.
+- **Canvas Connection Network**: An interactive, dynamic particle net background is rendered using JavaScript `canvas2d` mapping node connections within 110px.
 - **Scroll Reveal**: Uses standard `IntersectionObserver` configurations in `public/script.js` to animate grid items as they enter the screen viewport.
 - **Mouse Tilt Micro-animations**: Moving the cursor over the showcase cards calculates relative cursor coordinates to dynamically tilt cards (`rotateX` / `rotateY`) and raise elevation.
 - **Scrollability Support**: The admin panel sidebar and forms automatically adjust to use custom scrollbars on lower vertical heights to prevent navigation cutting.
 
 ---
 
-## 📦 Push to Git / GitHub
+## ☁️ Deployment Guide (Render + MongoDB Atlas)
 
-To push your project to a remote GitHub repository:
+This application runs flawlessly on **Render's Free Tier** because all storage requirements (database records + media uploads) are handled remotely by **MongoDB Atlas**.
 
-```bash
-# 1. Rename default branch
-git branch -M main
+### Step 1: Create a Free MongoDB Atlas Database
+1. Sign up for free at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
+2. Deploy a new cluster on the **M0 (Free)** tier.
+3. Add a Database User (save the username and password securely).
+4. Under **Network Access**, add `0.0.0.0/0` (allow connections from anywhere) so Render can connect to it.
+5. In **Database** -> click **Connect** -> select **Drivers** (Node.js). Copy the connection string.
 
-# 2. Add remote URL
-git remote add origin https://github.com/shivamishra12/Portfolio.git
+### Step 2: Create Web Service on Render
+1. Go to [Render](https://render.com) and log in.
+2. Click **New +** -> **Web Service**.
+3. Connect your repository `shivamishra12/Portfolio` and click **Connect**.
+4. Configure basic settings:
+   - **Name**: `shivam-portfolio`
+   - **Region**: Select your preferred region.
+   - **Runtime**: `Node`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+   - **Instance Type**: Select **Free**.
 
-# 3. Push code to the repository (overwrites placeholder files if force pushing)
-git push -u origin main --force
-```
+### Step 3: Configure Environment Variables
+In the **Environment** tab, add the following environment variables:
+- `MONGODB_URI` = `mongodb+srv://<db_username>:<db_password>@cluster.mongodb.net/portfolio?retryWrites=true&w=majority` *(your MongoDB Atlas connection string)*
+- `ADMIN_EMAIL` = `Shivamwork321@gmail.com` *(login email for dashboard)*
+- `ADMIN_PASSWORD` = `<your_admin_password>` *(login password for dashboard)*
+- `SESSION_SECRET` = `groot-is-groot-secret-key-2025`
 
-The `.gitignore` configuration guarantees that the database file `portfolio.db` (containing user session details, messages, and your custom passwords) and the dependencies in `node_modules/` are not pushed to public repositories.
-
----
-
-## ☁️ Deployment Guide (Render & Fly.io)
-
-### Option 1: Hosting on Render (Web Service)
-Since the app uses a persistent SQLite database (`portfolio.db`) and dynamic image uploads, you should attach a **Persistent Disk/Volume** to your Render Web Service.
-
-1. **Create Web Service**:
-   - Link your GitHub repository `https://github.com/shivamishra12/Portfolio`.
-   - Set Environment to `Node`.
-   - Set Build Command to `npm install`.
-   - Set Start Command to `npm start`.
-2. **Add Persistent Disk**:
-   - In the service settings, go to the **Disk** section.
-   - Add a Disk with Mount Path: `/data`.
-   - Size: `1 GB` (fully free).
-3. **Configure Environment Variables**:
-   - Add `DATABASE_PATH` = `/data/portfolio.db` (this moves the SQLite DB to the persistent volume).
-   - Add `UPLOADS_PATH` = `/data/uploads` (this moves the dynamic uploads to the persistent volume).
-   - Add `ADMIN_EMAIL` = `your-secure-email@example.com`.
-   - Add `ADMIN_PASSWORD` = `your-secure-password`.
-   - Add `SESSION_SECRET` = `some-random-long-secret-string`.
-4. **Deploy**: Click deploy! Your app will be live and your database and uploads will persist across updates.
-
----
-
-### Option 2: Hosting on Fly.io (Completely Free)
-Fly.io provides a free tier with 3 GB persistent volumes, which is perfect for keeping SQLite data.
-
-1. **Install flyctl**: Install the command line tool from [fly.io](https://fly.io).
-2. **Launch Application**:
-   ```bash
-   fly launch
-   ```
-   Follow the prompts to name your app and select a region. Do not set up Postgres or Redis.
-3. **Create Persistent Storage**:
-   Create a 1GB volume named `portfolio_data`:
-   ```bash
-   fly volumes create portfolio_data --size 1
-   ```
-4. **Configure `fly.toml`**:
-   Mount the volume by appending this to your `fly.toml` file:
-   ```toml
-   [mounts]
-     source = "portfolio_data"
-     destination = "/data"
-   ```
-5. **Set Environment Variables**:
-   Set secrets dynamically via the CLI:
-   ```bash
-   fly secrets set ADMIN_EMAIL="your-secure-email@example.com" ADMIN_PASSWORD="your-secure-password" DATABASE_PATH="/data/portfolio.db" UPLOADS_PATH="/data/uploads" SESSION_SECRET="your-long-secret-key"
-   ```
-6. **Deploy**:
-   ```bash
-   fly deploy
-   ```
+### Step 4: Deploy & Verify
+1. Click **Create Web Service**.
+2. Render will build and deploy your app.
+3. Access your site, go to `/login`, and upload your resume/images. Everything will persist forever in MongoDB Atlas!
 
 ---
 
