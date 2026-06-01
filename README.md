@@ -184,7 +184,9 @@ In the **Environment** tab, add the following environment variables:
 - `MONGODB_URI` = `mongodb+srv://<db_username>:<db_password>@cluster.mongodb.net/portfolio?retryWrites=true&w=majority` *(your MongoDB Atlas connection string)*
 - `ADMIN_EMAIL` = `Shivamwork321@gmail.com` *(login email for dashboard)*
 - `ADMIN_PASSWORD` = `<your_admin_password>` *(login password for dashboard)*
-- `SESSION_SECRET` = `groot-is-groot-secret-key-2025`
+- `SESSION_SECRET` = `choose-a-long-random-secure-secret-key` *(session cookie signature key)*
+- `NODE_ENV` = `production` *(enforces secure cookie handling)*
+- `ENABLE_SEEDING` = `false` *(prevents sample database seeding in production)*
 
 ### Step 4: Deploy & Verify
 1. Click **Create Web Service**.

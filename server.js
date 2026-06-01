@@ -456,6 +456,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Trust proxy for secure cookies behind reverse proxies (like Render)
+app.set('trust proxy', 1);
+
 // Configure session with MongoStore for database session backing
 app.use(session({
   secret: process.env.SESSION_SECRET,
@@ -466,7 +469,12 @@ app.use(session({
     collectionName: 'sessions',
     ttl: 8 * 60 * 60 // 8 hours
   }),
-  cookie: { maxAge: 1000 * 60 * 60 * 8 } // 8 hours
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 8, // 8 hours
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
 }));
 
 /* ─── MULTER (memory upload) ─────────────── */
